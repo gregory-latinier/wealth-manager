@@ -1,0 +1,99 @@
+name: Build & Package Deployment Artifacts
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Test, Build Client & Server Artifacts
+    runs-on: ubuntu-latest
+
+    # Tests run against a real PostgreSQL. The test setup creates and migrates its own database.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.10.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+        env:
+          # The test setup creates and migrates the wealthmanager_test database on this server.
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+
+      - name: Build Server
+        run: pnpm --filter server build
+
+      - name: Build Client
+        run: pnpm --filter client build
+
+      - name: Package Server Production Artifact
+        run: |
+          # Layout matches the target folder on o2switch: <app>/server/...
+          mkdir -p package/server
+          cp -r server/dist package/server/
+          cp server/package.json package/server/
+          cp server/server.js package/server/
+
+          # Install production dependencies inside the server package
+          # (includes node-pg-migrate, used by `migrate:prod`)
+          cd package/server
+          npm install --omit=dev
+          cd ../..
+
+      - name: Package Client Static Artifact
+        run: |
+          # Layout matches the target folder on o2switch: <app>/client/dist/...
+          mkdir -p package-client/client/dist
+          cp -r client/dist/* package-client/client/dist/
+
+      # upload-artifact already zips what it uploads: give it the folders,
+      # not a pre-built zip (that would produce a zip inside a zip).
+      # The downloaded server-artifact.zip / client-artifact.zip contain a top-level `server/` / `client/` folder.
+      - name: Upload Server Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-artifact
+          path: package
+          include-hidden-files: true # node_modules/.bin, .package-lock.json…
+          retention-days: 7
+
+      - name: Upload Client Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-artifact
+          path: package-client
+          retention-days: 7

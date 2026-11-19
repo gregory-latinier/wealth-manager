@@ -1,5 +1,8 @@
 import Fastify, { FastifyInstance } from 'fastify'
 import cookie from '@fastify/cookie'
+import fastifyStatic from '@fastify/static'
+import fs from 'fs'
+import path from 'path'
 import rateLimit from '@fastify/rate-limit'
 import { assertConfig } from './lib/config'
 import { healthRoutes } from './routes/health'
@@ -12,7 +15,12 @@ import { registerDefaultSources } from './sources/register-defaults'
 export interface BuildAppOptions {
   snapshots?: SnapshotRouteOptions
   adminCrypto?: AdminCryptoOptions
+  /** Folder of the built client. Defaults to <app>/client/dist in production and to nothing otherwise. */
+  clientDist?: string
 }
+
+/** On o2switch the artifacts unpack to <app>/server/dist and <app>/client/dist, so the client sits two levels up. */
+const DEFAULT_CLIENT_DIST = path.join(__dirname, '../../client/dist')
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   const app = Fastify({
@@ -33,6 +41,21 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(adminCryptoRoutes, { prefix: '/api/admin/crypto', ...options.adminCrypto })
   await app.register(dashboardRoutes, { prefix: '/api/dashboard' })
   await app.register(snapshotRoutes, { prefix: '/api/snapshots', ...options.snapshots })
+
+  // One process serves the API and the SPA, so there is no CORS and the cookie stays same-origin.
+  const clientDist = options.clientDist ?? (process.env.NODE_ENV === 'production' ? DEFAULT_CLIENT_DIST : undefined)
+  if (clientDist) {
+    if (!fs.existsSync(path.join(clientDist, 'index.html'))) {
+      app.log.warn({ clientDist }, 'client build not found, serving the API only')
+    } else {
+      await app.register(fastifyStatic, { root: clientDist, prefix: '/', wildcard: false })
+      // Client-side routes (/login, /admin/crypto) fall back to the SPA. Unknown API paths stay a JSON 404.
+      app.setNotFoundHandler((request, reply) => {
+        if (request.method !== 'GET' || request.url.startsWith('/api/')) return reply.status(404).send({ error: 'Not found' })
+        return reply.sendFile('index.html')
+      })
+    }
+  }
 
   return app
 }

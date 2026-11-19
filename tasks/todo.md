@@ -210,9 +210,9 @@ Size key: S = 1-2 files, M = 3-5 files.
 - [ ] **T18: Production serving and CI artifacts** (M)
   - Description: Serve `client/dist` from Fastify in production, add the Passenger `server.js` entry, `migrate:prod`, and the GitHub Actions workflow that builds `server-artifact` and `client-artifact` in the meals-planner layout.
   - Acceptance:
-    - [ ] A local production-mode run serves the SPA and the API from one process, and SPA routes fall back to `index.html`
-    - [ ] CI produces both artifacts with the expected top-level `server/` and `client/` folders
-    - [ ] Cookie is `Secure` in production, and the server runs behind HTTPS only
+    - [x] A local production-mode run serves the SPA and the API from one process, and SPA routes fall back to `index.html`
+    - [ ] CI produces both artifacts with the expected top-level `server/` and `client/` folders (workflow written; unverified until the first push, the owner decides when)
+    - [x] Cookie is `Secure` in production, and the server runs behind HTTPS only
   - Verify: `pnpm build && NODE_ENV=production node server/dist/index.js`, plus a CI run on a branch
   - Dependencies: T8, T17
   - Files: `server/server.js`, `server/src/index.ts`, `.github/workflows/build-artifacts.yml`, `server/package.json`
