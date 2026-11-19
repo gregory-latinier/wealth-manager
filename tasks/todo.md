@@ -70,15 +70,15 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Dependencies: T1, T3
   - Files: `server/src/lib/money.ts`, `server/src/lib/money.test.ts`, `server/src/sources/fx/frankfurter.ts`, `server/src/sources/fx/frankfurter.test.ts`
 
-- [ ] **T7: Snapshot schema and engine (with carry-forward)** (M)
-  - Description: `Snapshot` and `SnapshotLine` migration, `SourceType` interface and registry, engine that collects, converts, carries forward failures and upserts one snapshot per UTC date in a transaction.
+- [x] **T7: Snapshot schema and engine (with carry-forward)** (M)
+  - Description: `Snapshot` and `SnapshotLine` migration, `SourceType` interface and registry, engine that collects, converts, carries forward failures and replaces one snapshot per UTC date in a transaction. Network calls happen before the transaction, and an advisory lock serializes overlapping runs. DATE columns are returned as strings.
   - Acceptance:
-    - [ ] Totals and per-line values match hand-computed expectations (SC7)
-    - [ ] Same-day second run leaves one row with the second run's values (SC8)
-    - [ ] Failed entry with history is carried forward as `stale` with `staleSince`, snapshot is `partial`. Failed entry with no history is left out and reported, never 0 (SC9)
-    - [ ] FX failure reuses the last rate with `rateStale`. No rate ever stored means no snapshot (SC9)
-    - [ ] A later successful same-day run clears stale lines (SC9)
-    - [ ] A fake second `SourceType` is included in totals with no engine change (SC11)
+    - [x] Totals and per-line values match hand-computed expectations (SC7)
+    - [x] Same-day second run leaves one row with the second run's values (SC8)
+    - [x] Failed entry with history is carried forward as `stale` with `staleSince`, snapshot is `partial`. Failed entry with no history is left out and reported, never 0 (SC9)
+    - [x] FX failure reuses the last rate with `rateStale`. No rate ever stored means no snapshot (SC9)
+    - [x] A later successful same-day run clears stale lines (SC9)
+    - [x] A fake second `SourceType` is included in totals with no engine change (SC11)
   - Verify: `pnpm --filter server test` (integration tests on real PostgreSQL with fake sources)
   - Dependencies: T6
   - Files: `server/migrations/003_snapshot.ts`, `server/src/sources/types.ts`, `server/src/lib/snapshot.ts`, `server/src/lib/snapshot.test.ts`

@@ -1,5 +1,9 @@
-import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg'
+import { Pool, PoolClient, QueryResult, QueryResultRow, types } from 'pg'
 import '../lib/env'
+
+// Keep DATE columns as 'YYYY-MM-DD' strings. The default parser builds a local-time Date, which
+// shifts snapshot dates by a day on any server that is not running in UTC.
+types.setTypeParser(1082, (value) => value)
 
 const connectionString =
   process.env.DATABASE_URL || 'postgresql://wmuser:wmpassword@localhost:5433/wealthmanager'
