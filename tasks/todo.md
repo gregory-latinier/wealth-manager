@@ -1,0 +1,233 @@
+# Task list: wealth-manager
+
+Plan: [plan.md](plan.md). Spec: [../SPEC.md](../SPEC.md). Criteria numbers (SC#) refer to the spec's Success Criteria.
+Size key: S = 1-2 files, M = 3-5 files.
+
+## Phase 1: Foundation
+
+- [ ] **T1: Server scaffold and dev database** (M)
+  - Description: pnpm workspace, Fastify 5 server skeleton with health route, `pg` pool and query helper, `node-pg-migrate` wiring, Jest, dev PostgreSQL in docker, `.env.example`, `.gitignore`, MIT `LICENSE`.
+  - Acceptance:
+    - [ ] `pnpm dev:db` starts PostgreSQL 16, `pnpm dev:server` serves `GET /api/health` returning 200 and DB connectivity status
+    - [ ] `pnpm db:migrate` runs with an initial empty-safe migration and creates `pgmigrations`
+    - [ ] No secrets committed, `.env` is gitignored
+  - Verify: `pnpm build && pnpm test`, then `curl localhost:<port>/api/health`
+  - Dependencies: none
+  - Files: `package.json`, `pnpm-workspace.yaml`, `server/package.json`, `server/tsconfig.json`, `server/src/index.ts`, `server/src/db/index.ts`, `docker-compose.yml`, `.env.example`, `.gitignore`, `LICENSE`
+
+- [ ] **T2: Client scaffold** (S)
+  - Description: React 19 + Vite 6 + TypeScript + MUI + React Router app shell with a dev proxy to the server.
+  - Acceptance:
+    - [ ] `pnpm dev:client` renders a placeholder page that calls `/api/health` and shows the result
+    - [ ] `pnpm build` produces `client/dist`
+  - Verify: `pnpm build`, open the dev URL
+  - Dependencies: T1
+  - Files: `client/package.json`, `client/vite.config.ts`, `client/src/main.tsx`, `client/src/App.tsx`, `client/tsconfig.json`
+
+- [ ] **T3: Provider spike (docs only, no app code)** (S)
+  - Description: Verify the current docs and free-tier limits for Blockstream/mempool.space, Blockscout (ETH and Base), CoinGecko and Frankfurter. Confirm: BTC balance endpoint, EVM native balance, token balances with a spam flag, price by contract on `ethereum` and `base`, rate limits. Save findings and sample responses (with made-up addresses) as fixtures.
+  - Acceptance:
+    - [ ] `docs/providers.md` lists, per provider, the exact endpoints, limits and gotchas, with doc links
+    - [ ] Fixtures saved under `server/src/sources/crypto/__fixtures__/`
+    - [ ] Any provider that does not fit is called out with a proposed alternative
+  - Verify: owner reads `docs/providers.md`. If a provider changes, the plan and spec are updated before T10.
+  - Dependencies: T1
+  - Files: `docs/providers.md`, `server/src/sources/crypto/__fixtures__/*.json`
+
+- [ ] **T4: Auth API (password login, sessions, rate limit)** (M)
+  - Description: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `Session` migration, `requireAuth`, and `pnpm hash-password`.
+  - Acceptance:
+    - [ ] Wrong password returns 401 with no cookie. Right password returns 200 with an httpOnly cookie (`Secure` in production) (SC1)
+    - [ ] Protected routes return 401 without a session (SC1)
+    - [ ] 10 failed logins in a minute from one IP returns 429 (SC1)
+    - [ ] Missing `APP_PASSWORD_HASH` makes the server refuse to start with a clear message
+  - Verify: `pnpm --filter server test` (integration tests on real PostgreSQL)
+  - Dependencies: T1
+  - Files: `server/migrations/002_session.ts`, `server/src/lib/auth.ts`, `server/src/routes/auth.ts`, `server/src/lib/auth.test.ts`, `scripts/hash-password.mjs`
+
+- [ ] **T5: Login UI and route guard** (S)
+  - Description: Login page, auth context, protected-route wrapper, logout.
+  - Acceptance:
+    - [ ] Unauthenticated visit redirects to `/login`
+    - [ ] Correct password lands on an empty dashboard page. Wrong password shows an error
+  - Verify: manual walkthrough against the dev server
+  - Dependencies: T2, T4
+  - Files: `client/src/pages/Login.tsx`, `client/src/lib/auth.tsx`, `client/src/App.tsx`, `client/src/lib/api.ts`
+
+### Checkpoint A: Foundation
+- [ ] `pnpm build` and `pnpm test` pass
+- [ ] Login works end to end locally
+- [ ] `docs/providers.md` reviewed by owner and plan adjusted if needed
+
+## Phase 2: Snapshot engine
+
+- [ ] **T6: Money helpers and FX adapter** (M)
+  - Description: Decimal helpers (`decimal.js`, pending your confirmation) and the USD/EUR rate adapter (Frankfurter) behind an interface.
+  - Acceptance:
+    - [ ] USD to EUR conversion is exact against hand-computed fixtures, with no float artifacts
+    - [ ] FX adapter parses the fixture and rejects malformed or zero rates
+  - Verify: `pnpm --filter server test`
+  - Dependencies: T1, T3
+  - Files: `server/src/lib/money.ts`, `server/src/lib/money.test.ts`, `server/src/sources/fx/frankfurter.ts`, `server/src/sources/fx/frankfurter.test.ts`
+
+- [ ] **T7: Snapshot schema and engine (with carry-forward)** (M)
+  - Description: `Snapshot` and `SnapshotLine` migration, `SourceType` interface and registry, engine that collects, converts, carries forward failures and upserts one snapshot per UTC date in a transaction.
+  - Acceptance:
+    - [ ] Totals and per-line values match hand-computed expectations (SC7)
+    - [ ] Same-day second run leaves one row with the second run's values (SC8)
+    - [ ] Failed entry with history is carried forward as `stale` with `staleSince`, snapshot is `partial`. Failed entry with no history is left out and reported, never 0 (SC9)
+    - [ ] FX failure reuses the last rate with `rateStale`. No rate ever stored means no snapshot (SC9)
+    - [ ] A later successful same-day run clears stale lines (SC9)
+    - [ ] A fake second `SourceType` is included in totals with no engine change (SC11)
+  - Verify: `pnpm --filter server test` (integration tests on real PostgreSQL with fake sources)
+  - Dependencies: T6
+  - Files: `server/migrations/003_snapshot.ts`, `server/src/sources/types.ts`, `server/src/lib/snapshot.ts`, `server/src/lib/snapshot.test.ts`
+
+- [ ] **T8: Token-guarded snapshot endpoint** (S)
+  - Description: `POST /api/snapshots/run` with a bearer `SNAPSHOT_TOKEN` compared in constant time, calling the engine. Plus the `snapshot:run` script.
+  - Acceptance:
+    - [ ] Missing or wrong token returns 401. A session cookie alone returns 401 (SC2)
+    - [ ] Valid token returns 200 with a summary (date, totals, stale and left-out entries). A partial snapshot also returns 200 (SC9)
+    - [ ] Server refuses to start without `SNAPSHOT_TOKEN`
+  - Verify: `pnpm --filter server test`, then `curl -X POST -H "Authorization: Bearer …" localhost:<port>/api/snapshots/run`
+  - Dependencies: T4, T7
+  - Files: `server/src/routes/snapshots.ts`, `server/src/routes/snapshots.test.ts`, `server/src/index.ts`, `server/src/scripts/snapshot-run.ts`
+
+### Checkpoint B: Engine
+- [ ] Engine passes all carry-forward and idempotency tests
+- [ ] A curl with the token produces a snapshot using a fake source
+- [ ] Review with owner before building the crypto source
+
+## Phase 3: Crypto source
+
+- [ ] **T9: Crypto addresses API** (M)
+  - Description: `CryptoAddress` and `CryptoAsset` migration, plus CRUD for addresses (add, edit label, pause, delete) with chain and address validation and normalization.
+  - Acceptance:
+    - [ ] Valid BTC, ETH and Base addresses are stored (EVM lowercased). Malformed returns 400, duplicate `(chain, address)` returns 409 (SC3)
+    - [ ] Pause and delete never touch `SnapshotLine` rows (SC6)
+    - [ ] All routes require a session (SC1)
+  - Verify: `pnpm --filter server test`
+  - Dependencies: T4
+  - Files: `server/migrations/004_crypto.ts`, `server/src/sources/crypto/addresses.ts`, `server/src/routes/admin-crypto.ts`, `server/src/routes/admin-crypto.test.ts`, `server/src/sources/crypto/validate.ts`
+
+- [ ] **T10: Balance and price adapters** (M)
+  - Description: Interfaces plus adapters for BTC balance, EVM native balance (ETH, Base), ERC-20 balances, and USD prices (native and by contract), built on the T3 findings.
+  - Acceptance:
+    - [ ] Each adapter parses its recorded fixtures into typed results using decimal strings
+    - [ ] Provider errors, timeouts and malformed bodies raise typed errors and never return a silent 0
+    - [ ] Per-provider request timeout and a small concurrency cap are enforced
+  - Verify: `pnpm --filter server test` (fixtures only, no live network)
+  - Dependencies: T3, T6
+  - Files: `server/src/sources/crypto/providers/btc.ts`, `.../blockscout.ts`, `.../coingecko.ts`, `.../providers.test.ts`, `server/src/sources/crypto/providers/types.ts`
+
+- [ ] **T11: Crypto `SourceType` (native coins) wired into the engine** (S)
+  - Description: Implement `collect()` for active addresses and their native coin, using the adapters, and register it. First real snapshot.
+  - Acceptance:
+    - [ ] With fake adapters, a snapshot contains one line per active address, with values matching hand-computed numbers
+    - [ ] A failing address is reported in `failures`, and the engine carries it forward (SC9)
+    - [ ] Paused addresses are skipped (SC6)
+  - Verify: `pnpm --filter server test`. Optional smoke run against live providers with the owner's own address, kept out of the repo.
+  - Dependencies: T8, T9, T10
+  - Files: `server/src/sources/crypto/index.ts`, `server/src/sources/crypto/index.test.ts`, `server/src/lib/snapshot.ts` (registry line only)
+
+- [ ] **T12: Token scan API and threshold setting** (M)
+  - Description: `POST /api/admin/crypto/addresses/:id/scan` returns tokens grouped as above-threshold, unpriced, and hidden (spam or ignored). `Setting` and `IgnoredToken` migration, threshold get/set, ignore and unignore.
+  - Acceptance:
+    - [ ] Tokens at or above the threshold (default $10, configurable) are returned as selectable (SC4)
+    - [ ] Unpriced tokens are in a separate group and not preselected. Spam-flagged and ignored tokens are hidden by default (SC4)
+    - [ ] An ignored token never appears in a later scan's default list
+    - [ ] BTC addresses return an empty scan, not an error
+  - Verify: `pnpm --filter server test` (fixtures)
+  - Dependencies: T9, T10
+  - Files: `server/migrations/005_settings_ignored.ts`, `server/src/sources/crypto/scan.ts`, `server/src/routes/admin-crypto.ts`, `server/src/sources/crypto/scan.test.ts`
+
+- [ ] **T13: Tracked tokens, manual add, and token valuation** (M)
+  - Description: Save the tokens the owner selects, add a token by `(chain, contract)` (symbol and decimals read from chain data), pause and delete tokens, and include tracked tokens in the crypto `collect()`.
+  - Acceptance:
+    - [ ] Selected tokens appear in the next snapshot as their own lines (SC7)
+    - [ ] Manual add reads symbol and decimals. An unpriced contract is accepted, flagged, valued at 0 with a visible warning (SC5)
+    - [ ] Pause and delete keep past lines unchanged (SC6)
+    - [ ] Symbols and names are length-capped on write
+  - Verify: `pnpm --filter server test`
+  - Dependencies: T11, T12
+  - Files: `server/src/routes/admin-crypto.ts`, `server/src/sources/crypto/tokens.ts`, `server/src/sources/crypto/index.ts`, `server/src/sources/crypto/tokens.test.ts`
+
+- [ ] **T14: Admin → Crypto UI (addresses)** (M)
+  - Description: Admin page listing addresses with add, edit label, pause and delete (with confirm), plus a per-address last-value display.
+  - Acceptance:
+    - [ ] Add, edit, pause and delete work against the real API, with validation errors shown inline
+    - [ ] Labels and other provider-sourced strings are rendered as text, never as HTML
+    - [ ] The page lives under an admin nav that later source types can join
+  - Verify: manual walkthrough on the dev server, `pnpm build`
+  - Dependencies: T5, T9
+  - Files: `client/src/pages/admin/Crypto.tsx`, `client/src/components/AdminNav.tsx`, `client/src/lib/api.ts`, `client/src/App.tsx`
+
+- [ ] **T15: Admin → Crypto UI (token selection)** (M)
+  - Description: After adding an EVM address, show the scan results with checkboxes (above threshold preselected), an "unpriced" group, a "show hidden" toggle, ignore buttons, a manual add-by-contract form, and the threshold setting.
+  - Acceptance:
+    - [ ] Adding an ETH or Base address opens the selection dialog. Confirming saves the selected tokens (SC4)
+    - [ ] Manual add-by-contract works and shows the unpriced warning when relevant (SC5)
+    - [ ] Threshold change takes effect on the next scan
+  - Verify: manual walkthrough with fixture-backed dev adapters, `pnpm build`
+  - Dependencies: T13, T14
+  - Files: `client/src/pages/admin/Crypto.tsx`, `client/src/components/TokenScanDialog.tsx`, `client/src/components/AddTokenForm.tsx`, `client/src/lib/api.ts`
+
+### Checkpoint C: First real snapshot
+- [ ] All tests pass and the build is clean
+- [ ] With the owner's real addresses (kept out of the repo), running the snapshot gives plausible totals
+- [ ] Add address, pick tokens, run snapshot works end to end in the UI
+- [ ] Review with owner before the dashboard
+
+## Phase 4: Dashboard
+
+- [ ] **T16: Dashboard API** (S)
+  - Description: `GET /api/dashboard` returning the latest totals, 1-day and 7-day change (or null when history is shorter), the time series, and the per-asset breakdown for a given date, with stale and partial markers.
+  - Acceptance:
+    - [ ] With 0 snapshots, 1 snapshot and many snapshots, the response is correct and never errors (SC10)
+    - [ ] Changes are computed in decimal math from stored values
+    - [ ] Stale lines carry `staleSince`
+  - Verify: `pnpm --filter server test`
+  - Dependencies: T11
+  - Files: `server/src/routes/dashboard.ts`, `server/src/routes/dashboard.test.ts`
+
+- [ ] **T17: Dashboard UI** (M)
+  - Description: Totals card, 1-day and 7-day change, Recharts time series with a USD/EUR toggle, per-asset breakdown, partial-snapshot warning. Follows the `dataviz` skill.
+  - Acceptance:
+    - [ ] Renders correctly with 0, 1 and many snapshots (SC10)
+    - [ ] USD/EUR toggle switches the chart and totals
+    - [ ] Partial snapshots show a warning, and stale lines show their `staleSince` date
+    - [ ] Colors are accessible in light and dark
+  - Verify: manual walkthrough with seeded snapshots, `pnpm build`
+  - Dependencies: T5, T16
+  - Files: `client/src/pages/Dashboard.tsx`, `client/src/components/NetWorthChart.tsx`, `client/src/components/Breakdown.tsx`, `client/package.json` (Recharts)
+
+### Checkpoint D: Usable app
+- [ ] Dashboard shows real data from a local run
+- [ ] Owner confirms the numbers and layout before shipping work
+
+## Phase 5: Ship
+
+- [ ] **T18: Production serving and CI artifacts** (M)
+  - Description: Serve `client/dist` from Fastify in production, add the Passenger `server.js` entry, `migrate:prod`, and the GitHub Actions workflow that builds `server-artifact` and `client-artifact` in the meals-planner layout.
+  - Acceptance:
+    - [ ] A local production-mode run serves the SPA and the API from one process, and SPA routes fall back to `index.html`
+    - [ ] CI produces both artifacts with the expected top-level `server/` and `client/` folders
+    - [ ] Cookie is `Secure` in production, and the server runs behind HTTPS only
+  - Verify: `pnpm build && NODE_ENV=production node server/dist/index.js`, plus a CI run on a branch
+  - Dependencies: T8, T17
+  - Files: `server/server.js`, `server/src/index.ts`, `.github/workflows/build-artifacts.yml`, `server/package.json`
+
+- [ ] **T19: README, deploy guide and open-source hygiene** (S)
+  - Description: README with stack, local dev, o2switch steps (adapted from meals-planner), the cron line, backup note, env var table, and a repo scan for secrets and personal data.
+  - Acceptance:
+    - [ ] A fresh clone reaches a running local instance using only the README (SC13)
+    - [ ] Env vars documented: `DATABASE_URL`, `APP_PASSWORD_HASH`, `SNAPSHOT_TOKEN`, optional `COINGECKO_API_KEY`
+    - [ ] No secrets, real addresses or balances anywhere in the repo or history
+  - Verify: follow the README on a clean checkout, grep for secrets
+  - Dependencies: T18
+  - Files: `README.md`, `.env.example`, `LICENSE`
+
+### Checkpoint E: Done
+- [ ] Spec Success Criteria 1 to 13 all met
+- [ ] Deployed on o2switch with the cron configured by the owner, and one real daily snapshot recorded
+- [ ] Owner decides when to publish `wealth-manager` on GitHub
