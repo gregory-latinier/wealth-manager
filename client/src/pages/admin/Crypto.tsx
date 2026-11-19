@@ -26,8 +26,11 @@ import {
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/DeleteOutlined'
 import EditIcon from '@mui/icons-material/EditOutlined'
+import TokenIcon from '@mui/icons-material/TokenOutlined'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import AdminNav from '../../components/AdminNav'
+import TokenScanDialog from '../../components/TokenScanDialog'
+import TrackedTokensDialog from '../../components/TrackedTokensDialog'
 import { ApiError } from '../../lib/api'
 import { CHAIN_LABEL, cryptoApi, formatMoney, shortAddress, type Chain, type CryptoAddress } from '../../lib/crypto'
 
@@ -199,6 +202,8 @@ export default function Crypto() {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<CryptoAddress | null>(null)
   const [deleting, setDeleting] = useState<CryptoAddress | null>(null)
+  const [managing, setManaging] = useState<CryptoAddress | null>(null)
+  const [scanning, setScanning] = useState<CryptoAddress | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -294,6 +299,11 @@ export default function Crypto() {
                     />
                   </TableCell>
                   <TableCell align="right">
+                    {a.chain !== 'btc' && (
+                      <IconButton aria-label="Tracked tokens" onClick={() => setManaging(a)}>
+                        <TokenIcon />
+                      </IconButton>
+                    )}
                     <IconButton aria-label="Edit label" onClick={() => setEditing(a)}>
                       <EditIcon />
                     </IconButton>
@@ -308,7 +318,21 @@ export default function Crypto() {
         </TableContainer>
       )}
 
-      <AddAddressDialog open={adding} onClose={() => setAdding(false)} onAdded={() => void load()} />
+      <AddAddressDialog open={adding} onClose={() => setAdding(false)} onAdded={(a) => {
+          void load()
+          // A new EVM address goes straight to token selection.
+          if (a.chain !== 'btc') setScanning({ ...a, lastValue: null })
+        }}
+      />
+      <TrackedTokensDialog
+        address={managing}
+        onClose={() => setManaging(null)}
+        onScan={(a) => {
+          setManaging(null)
+          setScanning(a)
+        }}
+      />
+      <TokenScanDialog address={scanning} onClose={() => setScanning(null)} onChanged={() => void load()} />
       <EditLabelDialog address={editing} onClose={() => setEditing(null)} onSaved={() => void load()} />
       <ConfirmDelete address={deleting} onClose={() => setDeleting(null)} onDeleted={() => void load()} />
     </AdminNav>

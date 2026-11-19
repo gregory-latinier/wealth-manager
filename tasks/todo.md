@@ -162,12 +162,12 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Dependencies: T5, T9
   - Files: `client/src/pages/admin/Crypto.tsx`, `client/src/components/AdminNav.tsx`, `client/src/lib/api.ts`, `client/src/App.tsx`
 
-- [ ] **T15: Admin → Crypto UI (token selection)** (M)
+- [x] **T15: Admin → Crypto UI (token selection)** (M)
   - Description: After adding an EVM address, show the scan results with checkboxes (above threshold preselected), an "unpriced" group, a "show hidden" toggle, ignore buttons, a manual add-by-contract form, and the threshold setting.
   - Acceptance:
-    - [ ] Adding an ETH or Base address opens the selection dialog. Confirming saves the selected tokens (SC4)
-    - [ ] Manual add-by-contract works and shows the unpriced warning when relevant (SC5)
-    - [ ] Threshold change takes effect on the next scan
+    - [x] Adding an ETH or Base address opens the selection dialog. Confirming saves the selected tokens (SC4)
+    - [x] Manual add-by-contract works and shows the unpriced warning when relevant (SC5)
+    - [x] Threshold change takes effect on the next scan
   - Verify: manual walkthrough with fixture-backed dev adapters, `pnpm build`
   - Dependencies: T13, T14
   - Files: `client/src/pages/admin/Crypto.tsx`, `client/src/components/TokenScanDialog.tsx`, `client/src/components/AddTokenForm.tsx`, `client/src/lib/api.ts`

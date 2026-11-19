@@ -41,3 +41,60 @@ export function formatMoney(value: string, currency: 'USD' | 'EUR'): string {
 export function shortAddress(address: string): string {
   return address.length > 20 ? `${address.slice(0, 8)}…${address.slice(-6)}` : address
 }
+
+export interface ScanEntry {
+  contract: string
+  symbol: string
+  name: string
+  decimals: number
+  balance: string
+  priceUsd: string | null
+  valueUsd: string | null
+  tracked: boolean
+}
+
+export interface HiddenEntry extends ScanEntry {
+  hiddenReason: 'ignored' | 'spam'
+}
+
+export type ScanResult =
+  | { status: 'disabled'; reason: string }
+  | { status: 'ok'; thresholdUsd: string; selectable: ScanEntry[]; unpriced: ScanEntry[]; hidden: HiddenEntry[]; belowThresholdCount: number }
+
+export interface TrackedToken {
+  id: string
+  addressId: string
+  symbol: string
+  contractAddress: string
+  decimals: number
+  active: boolean
+  createdAt: string
+}
+
+export interface AddedToken extends TrackedToken {
+  /** null when the price check itself failed. */
+  priced: boolean | null
+  warning: string | null
+}
+
+export interface IgnoredToken {
+  id: string
+  chain: 'eth' | 'base'
+  contractAddress: string
+}
+
+const addr = (id: string) => `${BASE}/addresses/${encodeURIComponent(id)}`
+
+export const tokenApi = {
+  scan: (addressId: string) => api<ScanResult>(`${addr(addressId)}/scan`, { method: 'POST' }),
+  list: (addressId: string) => api<{ tokens: TrackedToken[] }>(`${addr(addressId)}/tokens`).then((r) => r.tokens),
+  add: (addressId: string, contractAddress: string) => api<AddedToken>(`${addr(addressId)}/tokens`, { method: 'POST', body: { contractAddress } }),
+  setActive: (addressId: string, tokenId: string, active: boolean) =>
+    api<TrackedToken>(`${addr(addressId)}/tokens/${encodeURIComponent(tokenId)}`, { method: 'PATCH', body: { active } }),
+  remove: (addressId: string, tokenId: string) => api(`${addr(addressId)}/tokens/${encodeURIComponent(tokenId)}`, { method: 'DELETE' }),
+  getThreshold: () => api<{ scanThresholdUsd: string }>(`${BASE}/settings`).then((r) => r.scanThresholdUsd),
+  setThreshold: (scanThresholdUsd: string) => api<{ scanThresholdUsd: string }>(`${BASE}/settings`, { method: 'PUT', body: { scanThresholdUsd } }),
+  listIgnored: () => api<{ ignored: IgnoredToken[] }>(`${BASE}/ignored-tokens`).then((r) => r.ignored),
+  ignore: (chain: 'eth' | 'base', contractAddress: string) => api<IgnoredToken>(`${BASE}/ignored-tokens`, { method: 'POST', body: { chain, contractAddress } }),
+  unignore: (id: string) => api(`${BASE}/ignored-tokens/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+}
