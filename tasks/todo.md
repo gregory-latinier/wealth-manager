@@ -220,9 +220,9 @@ Size key: S = 1-2 files, M = 3-5 files.
 - [ ] **T19: README, deploy guide and open-source hygiene** (S)
   - Description: README with stack, local dev, o2switch steps (adapted from meals-planner), the cron line, backup note, env var table, and a repo scan for secrets and personal data.
   - Acceptance:
-    - [ ] A fresh clone reaches a running local instance using only the README (SC13)
-    - [ ] Env vars documented: `DATABASE_URL`, `APP_PASSWORD_HASH`, `SNAPSHOT_TOKEN`, optional `COINGECKO_API_KEY`
-    - [ ] No secrets, real addresses or balances anywhere in the repo or history
+    - [ ] A fresh clone reaches a running local instance using only the README (SC13). Not yet followed on a clean checkout.
+    - [x] Env vars documented in the README table (`.env.example` still to be checked by the owner)
+    - [x] No secrets, real addresses or balances anywhere in the repo or history (scanned tree and all commits; `.env` never committed). Open: commit author email, see below
   - Verify: follow the README on a clean checkout, grep for secrets
   - Dependencies: T18
   - Files: `README.md`, `.env.example`, `LICENSE`

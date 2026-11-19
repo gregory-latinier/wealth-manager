@@ -1,0 +1,203 @@
+# Wealth Manager
+
+A personal, single-owner net-worth tracker. A daily cron calls one API endpoint, which snapshots everything you hold, and the dashboard charts the evolution in **USD and EUR**.
+
+Built to be self-hosted on cheap shared hosting ([o2switch](https://www.o2switch.fr/), Phusion Passenger), but it runs anywhere Node.js and PostgreSQL do.
+
+> One owner, one password. There is no sign-up, no multi-user mode and no 2FA. Do not expose it without HTTPS.
+
+## What it does (v1)
+
+- Tracks **crypto addresses**: BTC, ETH and Base. Native coins plus ERC-20 tokens.
+- Adding an address scans it for tokens worth more than a USD threshold (default about $10). You pick which to track, or add one by contract address.
+- A daily snapshot records every holding, its price and its value in USD and EUR.
+- The dashboard shows the total, the 1-day and 7-day change, the evolution chart, and the holdings of any day.
+- If a provider fails, the last known value is carried forward and marked **stale**, so one outage never leaves a hole in the chart.
+
+Out of scope for v1: backfilling history, trades, taxes and P&L, other chains, NFTs, BTC xpubs. Other source types (Aave, forex, bank, stocks) are meant to plug in later as new `SourceType`s.
+
+## Stack
+
+| | |
+|---|---|
+| Server | Fastify 5, TypeScript, native `pg` (no ORM), `node-pg-migrate` |
+| Client | React 19, Vite, MUI, React Router, Recharts |
+| Database | PostgreSQL 16 |
+| Monorepo | pnpm workspaces (`server/`, `client/`) |
+| Tests | Jest on a real PostgreSQL |
+
+Data providers, all keyless by default (see [`docs/providers.md`](docs/providers.md) for what was verified):
+
+| Need | Provider |
+|---|---|
+| BTC balance | mempool.space |
+| ETH and Base balances | public JSON-RPC (override with your own endpoint) |
+| Token prices | CoinGecko |
+| Token scan on Ethereum | Blockscout |
+| Token scan on Base | Blockscout, **needs `BLOCKSCOUT_API_KEY`**. Without it you can still add Base tokens by contract. |
+| USD/EUR rate | Frankfurter |
+
+## Local development
+
+Requirements: Node.js 20 or later, pnpm 10, Docker (for PostgreSQL).
+
+```bash
+pnpm install
+cp .env.example .env          # then edit it, see below
+pnpm dev:db                   # PostgreSQL on localhost:5433
+pnpm db:migrate               # apply the migrations
+pnpm dev                      # server on :3001, client on :5173
+```
+
+Open http://localhost:5173 and log in.
+
+### Choose your password
+
+The password is never stored in clear text. Generate a bcrypt hash and put it in `.env`:
+
+```bash
+pnpm hash-password            # prompts, input hidden, minimum 12 characters
+```
+
+Wrap the value in **single quotes** in `.env`, because a bcrypt hash contains `$`:
+
+```env
+APP_PASSWORD_HASH='$2b$12$...'
+```
+
+Generate the snapshot token with `openssl rand -hex 32`.
+
+The server refuses to start without a valid `APP_PASSWORD_HASH` and a `SNAPSHOT_TOKEN` of at least 32 characters.
+
+### Record a snapshot by hand
+
+After adding an address under **Crypto**:
+
+```bash
+pnpm snapshot:run
+```
+
+## Environment variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | yes | PostgreSQL connection string. The local default is `postgresql://wmuser:wmpassword@localhost:5433/wealthmanager`, matching `docker-compose.yml`. |
+| `APP_PASSWORD_HASH` | yes | bcrypt hash of your password (`pnpm hash-password`). |
+| `SNAPSHOT_TOKEN` | yes | Bearer token the cron uses, 32 characters or more. |
+| `ETH_RPC_URL` | no | Comma-separated JSON-RPC URLs for Ethereum. Replaces the public defaults. |
+| `BASE_RPC_URL` | no | Same, for Base. |
+| `BLOCKSCOUT_API_KEY` | no | Enables the token scan on Base. |
+| `COINGECKO_API_KEY` | no | Raises the CoinGecko rate limit. |
+| `PORT` | no | Server port, default `3001`. Passenger sets its own. |
+
+`NODE_ENV` does not need to be set in production: `server/server.js` forces it. In production the session cookie is `Secure`, so the site **must** be served over HTTPS, otherwise login appears to work but the session is never kept.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `pnpm dev` | Server and client in watch mode |
+| `pnpm dev:db` / `pnpm dev:db:down` | Start / stop the local PostgreSQL |
+| `pnpm db:migrate` | Apply the migrations locally |
+| `pnpm test` | Server tests. They create and migrate their own `wealthmanager_test` database on the `DATABASE_URL` server. |
+| `pnpm lint` | Lint the server |
+| `pnpm build` | Build server and client |
+| `pnpm snapshot:run` | Record today's snapshot now |
+| `pnpm hash-password` | Print a bcrypt hash for `APP_PASSWORD_HASH` |
+
+## Deploying on o2switch (Phusion Passenger)
+
+CI builds everything, so nothing is compiled on the server. This follows the same layout as the author's other o2switch apps.
+
+### 1. Create the database
+
+In cPanel, **Bases de données PostgreSQL**: create a database and a user, give the user all privileges, and note the connection string:
+
+```text
+postgresql://<cpaneluser>_wmuser:<password>@localhost:5432/<cpaneluser>_wealth
+```
+
+### 2. Create the subdomain with HTTPS
+
+In cPanel, create a subdomain (for example `wealth.<yourdomain>`) and run **AutoSSL** in **SSL/TLS Status**.
+
+### 3. Get the artifacts
+
+Every push to `main` (or a manual run of **Build & Package Deployment Artifacts** under the **Actions** tab) produces `server-artifact.zip` and `client-artifact.zip`. Download both from the run page.
+
+### 4. Upload and extract
+
+Create `/home/<cpaneluser>/wealth/` and extract **both** zips into it. Each holds its own top-level folder:
+
+```text
+/home/<cpaneluser>/wealth/
+├── server/       server.js, package.json, dist/ (with dist/migrations/), node_modules/
+└── client/
+    └── dist/     index.html, assets/
+```
+
+The server looks for the front end at `../../client/dist` relative to `server/dist/`. If `/` shows `{"error":"Not found"}`, that folder is in the wrong place.
+
+### 5. Configure the Node.js app
+
+In cPanel, **Configurer une application Node.js**, then **Create Application**:
+
+- Node.js version: `20.x`
+- Mode: `Production`
+- Application root: `wealth/server`
+- Application URL: your subdomain
+- Startup file: `server.js`
+
+Add the environment variables `DATABASE_URL`, `APP_PASSWORD_HASH` and `SNAPSHOT_TOKEN` (plus the optional ones you want). There is no `.env` file in production, so variables come from this screen. Save, then restart the application after any change. If the app fails to start with "not a valid bcrypt hash", check that the value was pasted whole and that `$` signs were not altered.
+
+Generate the hash on your own machine with `pnpm hash-password`. Do not type the password into the server.
+
+### 6. Run the migrations
+
+On the same screen, click **Run JS script** and choose `migrate:prod`. Run it again after every deployment that adds a migration. Do not click **Run NPM Install**: `node_modules/` is already in the artifact.
+
+### 7. Schedule the daily snapshot
+
+In cPanel, **Tâches Cron**, add one job per day. Snapshots are keyed by UTC date, so pick a time that is unambiguous in your server's timezone (shortly after midnight UTC works well):
+
+```bash
+curl -fsS -X POST -H "Authorization: Bearer <SNAPSHOT_TOKEN>" https://wealth.<yourdomain>/api/snapshots/run
+```
+
+Put your address in the cron email field. `curl -f` makes a failed run (wrong token, no USD/EUR rate) exit non-zero, so cPanel mails you.
+
+A run in which some providers fail still succeeds: the affected holdings are carried forward and shown as stale. Running it twice on the same UTC day updates that day's snapshot instead of adding another.
+
+### Backups
+
+Your history only exists in this database, so back it up. A daily `pg_dump` from a cPanel cron job is enough:
+
+```bash
+pg_dump "postgresql://<user>:<password>@localhost:5432/<db>" | gzip > ~/backups/wealth-$(date +\%F).sql.gz
+```
+
+The connection string is written out because a cron job does not see the Node.js app's variables. Keep it out of any shared file.
+
+Copy the dumps off the server (rclone to a cloud drive works well) and delete old ones. The database holds addresses and balances but no keys or secrets.
+
+## Security notes
+
+- The app only ever reads public addresses and balances. It never asks for a private key or seed phrase, and neither should you give it one.
+- Login is rate-limited, sessions are stored as SHA-256 hashes, and the cookie is `HttpOnly`, `SameSite=Lax` and `Secure` in production.
+- The snapshot endpoint accepts only the bearer token. A logged-in session cannot trigger it.
+- Anyone who reads the database sees your addresses and balances. Treat backups accordingly.
+
+## Project layout
+
+```text
+server/src/sources/   SourceType plug-ins (crypto today)
+server/src/routes/    HTTP routes (auth, admin, dashboard, snapshots)
+server/migrations/    node-pg-migrate migrations
+client/src/           React app
+docs/providers.md     what each data provider can and cannot do
+SPEC.md               the specification this was built from
+```
+
+## License
+
+[MIT](LICENSE)
