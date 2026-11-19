@@ -45,7 +45,10 @@ export default function Login() {
           </Box>
         </Stack>
         {error && <Alert severity="error">{error}</Alert>}
+        {/* There is one owner and no username, but password managers only offer to save a login that has a username field. */}
+        <input type="text" name="username" value="owner" autoComplete="username" readOnly hidden />
         <TextField
+          name="password"
           label="Password"
           type="password"
           autoComplete="current-password"
