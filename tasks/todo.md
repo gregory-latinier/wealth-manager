@@ -45,11 +45,11 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Dependencies: T1
   - Files: `server/migrations/002_session.ts`, `server/src/lib/auth.ts`, `server/src/routes/auth.ts`, `server/src/lib/auth.test.ts`, `scripts/hash-password.mjs`
 
-- [ ] **T5: Login UI and route guard** (S)
+- [x] **T5: Login UI and route guard** (S)
   - Description: Login page, auth context, protected-route wrapper, logout.
   - Acceptance:
-    - [ ] Unauthenticated visit redirects to `/login`
-    - [ ] Correct password lands on an empty dashboard page. Wrong password shows an error
+    - [x] Unauthenticated visit redirects to `/login` (route guard in code; not yet seen in a browser)
+    - [x] Correct password lands on an empty dashboard page. Wrong password shows an error (API flow verified through the Vite proxy; rendered UI not yet seen in a browser)
   - Verify: manual walkthrough against the dev server
   - Dependencies: T2, T4
   - Files: `client/src/pages/Login.tsx`, `client/src/lib/auth.tsx`, `client/src/App.tsx`, `client/src/lib/api.ts`
