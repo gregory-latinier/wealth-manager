@@ -141,13 +141,13 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Dependencies: T9, T10
   - Files: `server/migrations/005_settings_ignored.ts`, `server/src/sources/crypto/scan.ts`, `.../settings.ts`, `.../providers/blockscout.ts`, `server/src/routes/admin-crypto.ts`, `server/src/sources/crypto/scan.test.ts`
 
-- [ ] **T13: Tracked tokens, manual add, and token valuation** (M)
+- [x] **T13: Tracked tokens, manual add, and token valuation** (M)
   - Description: Save the tokens the owner selects, add a token by `(chain, contract)` (symbol and decimals read from chain data), pause and delete tokens, and include tracked tokens in the crypto `collect()`.
   - Acceptance:
-    - [ ] Selected tokens appear in the next snapshot as their own lines (SC7)
-    - [ ] Manual add reads symbol and decimals. An unpriced contract is accepted, flagged, valued at 0 with a visible warning (SC5)
-    - [ ] Pause and delete keep past lines unchanged (SC6)
-    - [ ] Symbols and names are length-capped on write
+    - [x] Selected tokens appear in the next snapshot as their own lines (SC7)
+    - [x] Manual add reads symbol and decimals. An unpriced contract is accepted, flagged, valued at 0 with a visible warning (SC5)
+    - [x] Pause and delete keep past lines unchanged (SC6)
+    - [x] Symbols and names are length-capped on write
   - Verify: `pnpm --filter server test`
   - Dependencies: T11, T12
   - Files: `server/src/routes/admin-crypto.ts`, `server/src/sources/crypto/tokens.ts`, `server/src/sources/crypto/index.ts`, `server/src/sources/crypto/tokens.test.ts`
