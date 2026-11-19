@@ -4,8 +4,13 @@ import rateLimit from '@fastify/rate-limit'
 import { assertConfig } from './lib/config'
 import { healthRoutes } from './routes/health'
 import { authRoutes } from './routes/auth'
+import { snapshotRoutes, type SnapshotRouteOptions } from './routes/snapshots'
 
-export async function buildApp(): Promise<FastifyInstance> {
+export interface BuildAppOptions {
+  snapshots?: SnapshotRouteOptions
+}
+
+export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   const app = Fastify({
     logger: process.env.NODE_ENV !== 'test',
     // Behind Passenger the client address arrives in X-Forwarded-For. Without this every visitor
@@ -18,6 +23,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(healthRoutes, { prefix: '/api' })
   await app.register(authRoutes, { prefix: '/api/auth' })
+  await app.register(snapshotRoutes, { prefix: '/api/snapshots', ...options.snapshots })
 
   return app
 }

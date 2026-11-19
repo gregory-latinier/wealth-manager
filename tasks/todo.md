@@ -83,19 +83,19 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Dependencies: T6
   - Files: `server/migrations/003_snapshot.ts`, `server/src/sources/types.ts`, `server/src/lib/snapshot.ts`, `server/src/lib/snapshot.test.ts`
 
-- [ ] **T8: Token-guarded snapshot endpoint** (S)
-  - Description: `POST /api/snapshots/run` with a bearer `SNAPSHOT_TOKEN` compared in constant time, calling the engine. Plus the `snapshot:run` script.
+- [x] **T8: Token-guarded snapshot endpoint** (S)
+  - Description: `POST /api/snapshots/run` with a bearer `SNAPSHOT_TOKEN` compared in constant time (digest comparison), calling the engine. Plus the `snapshot:run` script. If no rate was ever stored the endpoint returns 503 and writes nothing.
   - Acceptance:
-    - [ ] Missing or wrong token returns 401. A session cookie alone returns 401 (SC2)
-    - [ ] Valid token returns 200 with a summary (date, totals, stale and left-out entries). A partial snapshot also returns 200 (SC9)
-    - [ ] Server refuses to start without `SNAPSHOT_TOKEN`
+    - [x] Missing or wrong token returns 401. A session cookie alone returns 401 (SC2)
+    - [x] Valid token returns 200 with a summary (date, totals, stale and left-out entries). A partial snapshot also returns 200 (SC9)
+    - [x] Server refuses to start without `SNAPSHOT_TOKEN` (and rejects one shorter than 32 characters)
   - Verify: `pnpm --filter server test`, then `curl -X POST -H "Authorization: Bearer …" localhost:<port>/api/snapshots/run`
   - Dependencies: T4, T7
   - Files: `server/src/routes/snapshots.ts`, `server/src/routes/snapshots.test.ts`, `server/src/index.ts`, `server/src/scripts/snapshot-run.ts`
 
 ### Checkpoint B: Engine
-- [ ] Engine passes all carry-forward and idempotency tests
-- [ ] A curl with the token produces a snapshot using a fake source
+- [x] Engine passes all carry-forward and idempotency tests
+- [x] A curl with the token produces a snapshot (live Frankfurter rate, no source registered yet, so zero lines). Fake-source totals are covered by the endpoint tests
 - [ ] Review with owner before building the crypto source
 
 ## Phase 3: Crypto source

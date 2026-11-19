@@ -5,5 +5,6 @@ url.pathname = '/wealthmanager_test'
 
 process.env.DATABASE_URL = url.toString()
 process.env.NODE_ENV = 'test'
+process.env.SNAPSHOT_TOKEN = 'test-snapshot-token-0123456789abcdef0123456789'
 // bcrypt hash of "correct-horse-battery" at cost 4 (fast for tests)
 process.env.APP_PASSWORD_HASH = require('bcryptjs').hashSync('correct-horse-battery', 4)

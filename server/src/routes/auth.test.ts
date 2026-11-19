@@ -134,6 +134,18 @@ describe('assertConfig', () => {
     expect(() => assertConfig()).toThrow(/APP_PASSWORD_HASH is not set/)
   })
 
+  it('refuses to start without a long enough SNAPSHOT_TOKEN', () => {
+    const token = process.env.SNAPSHOT_TOKEN
+    try {
+      delete process.env.SNAPSHOT_TOKEN
+      expect(() => assertConfig()).toThrow(/SNAPSHOT_TOKEN is not set/)
+      process.env.SNAPSHOT_TOKEN = 'short'
+      expect(() => assertConfig()).toThrow(/too short/)
+    } finally {
+      process.env.SNAPSHOT_TOKEN = token
+    }
+  })
+
   it('refuses a value that is not a bcrypt hash (e.g. a .env value mangled by "$" expansion)', () => {
     process.env.APP_PASSWORD_HASH = 'plain-text-password'
     expect(() => assertConfig()).toThrow(/not a valid bcrypt hash/)
