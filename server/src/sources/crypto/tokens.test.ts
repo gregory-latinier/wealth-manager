@@ -190,6 +190,23 @@ describe('tracked tokens', () => {
       expect(summary).toMatchObject({ status: 'complete', totalUsd: '4081.77846221', totalEur: '3265.42276977', lineCount: 2 })
     })
 
+    it('lists each address with its last snapshot value, summing native and tokens (T14)', async () => {
+      const p = fakes({
+        evm: { [`base:${EVM}`]: { native: '2', tokens: { [USDC]: '81.809468' } } },
+        known: { [USDC]: '0.999621' },
+        metadata: { [USDC]: { symbol: 'USDC', decimals: 6 } },
+      })
+      await setup(p)
+      const id = await addAddress('base', EVM)
+      await addToken(id, USDC)
+      const before = (await call('GET', '/addresses')).json().addresses
+      expect(before[0].lastValue).toBeNull()
+
+      await runSnapshot({ sources: [createCryptoSource(p)], fx, now: new Date('2026-11-19T12:00:00Z') })
+      const [addr] = (await call('GET', '/addresses')).json().addresses
+      expect(addr.lastValue).toEqual({ usd: '4081.77846221', eur: '3265.42276977', date: '2026-11-19', stale: false })
+    })
+
     it('values an unpriced token at 0 and keeps the snapshot complete', async () => {
       const p = fakes({
         evm: { [`eth:${EVM}`]: { native: '1', tokens: { [OBSCURE]: '500' } } },

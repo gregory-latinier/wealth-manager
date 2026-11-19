@@ -85,3 +85,25 @@ export async function deleteAddress(id: string): Promise<boolean> {
   const res = await query(`DELETE FROM "CryptoAddress" WHERE "id" = $1`, [id])
   return (res.rowCount ?? 0) > 0
 }
+
+export interface AddressLastValue {
+  usd: string
+  eur: string
+  /** Date of the snapshot the value comes from. */
+  date: string
+  /** True when at least one line of this address was carried forward in that snapshot. */
+  stale: boolean
+}
+
+/** Value of each address in the latest snapshot, keyed by `chain:address`. Lines are matched on their sourceRef prefix. */
+export async function lastValues(): Promise<Map<string, AddressLastValue>> {
+  const res = await query<{ key: string; usd: string; eur: string; date: string; stale: boolean }>(
+    `SELECT split_part(l."sourceRef", ':', 1) || ':' || split_part(l."sourceRef", ':', 2) AS "key",
+            SUM(l."valueUsd")::text AS "usd", SUM(l."valueEur")::text AS "eur", s."date"::text AS "date", BOOL_OR(l."stale") AS "stale"
+       FROM "SnapshotLine" l
+       JOIN "Snapshot" s ON s."id" = l."snapshotId"
+      WHERE l."sourceType" = 'crypto' AND s."id" = (SELECT "id" FROM "Snapshot" ORDER BY "date" DESC LIMIT 1)
+      GROUP BY 1, s."date"`
+  )
+  return new Map(res.rows.map((r) => [r.key, { usd: r.usd, eur: r.eur, date: r.date, stale: r.stale }]))
+}

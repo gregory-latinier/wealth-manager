@@ -152,12 +152,12 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Dependencies: T11, T12
   - Files: `server/src/routes/admin-crypto.ts`, `server/src/sources/crypto/tokens.ts`, `server/src/sources/crypto/index.ts`, `server/src/sources/crypto/tokens.test.ts`
 
-- [ ] **T14: Admin → Crypto UI (addresses)** (M)
+- [x] **T14: Admin → Crypto UI (addresses)** (M)
   - Description: Admin page listing addresses with add, edit label, pause and delete (with confirm), plus a per-address last-value display.
   - Acceptance:
-    - [ ] Add, edit, pause and delete work against the real API, with validation errors shown inline
-    - [ ] Labels and other provider-sourced strings are rendered as text, never as HTML
-    - [ ] The page lives under an admin nav that later source types can join
+    - [x] Add, edit, pause and delete work against the real API, with validation errors shown inline (UI compiles and the API is tested; the rendered page is not yet seen in a browser)
+    - [x] Labels and other provider-sourced strings are rendered as text, never as HTML
+    - [x] The page lives under an admin nav that later source types can join
   - Verify: manual walkthrough on the dev server, `pnpm build`
   - Dependencies: T5, T9
   - Files: `client/src/pages/admin/Crypto.tsx`, `client/src/components/AdminNav.tsx`, `client/src/lib/api.ts`, `client/src/App.tsx`

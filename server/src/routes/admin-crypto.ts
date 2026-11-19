@@ -5,6 +5,7 @@ import {
   createAddress,
   deleteAddress,
   getAddress,
+  lastValues,
   listAddresses,
   updateAddress,
 } from '../sources/crypto/addresses'
@@ -54,7 +55,10 @@ export const adminCryptoRoutes: FastifyPluginAsync<AdminCryptoOptions> = async (
   // Every admin route needs a session.
   fastify.addHook('preHandler', requireAuth)
 
-  fastify.get('/addresses', async () => ({ addresses: await listAddresses() }))
+  fastify.get('/addresses', async () => {
+    const [addresses, values] = await Promise.all([listAddresses(), lastValues()])
+    return { addresses: addresses.map((a) => ({ ...a, lastValue: values.get(`${a.chain}:${a.address}`) ?? null })) }
+  })
 
   fastify.post(
     '/addresses',
