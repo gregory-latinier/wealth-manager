@@ -15,7 +15,7 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Dependencies: none
   - Files: `package.json`, `pnpm-workspace.yaml`, `server/package.json`, `server/tsconfig.json`, `server/src/index.ts`, `server/src/db/index.ts`, `docker-compose.yml`, `.env.example`, `.gitignore`, `LICENSE`
 
-- [ ] **T2: Client scaffold** (S)
+- [x] **T2: Client scaffold** (S)
   - Description: React 19 + Vite 6 + TypeScript + MUI + React Router app shell with a dev proxy to the server.
   - Acceptance:
     - [ ] `pnpm dev:client` renders a placeholder page that calls `/api/health` and shows the result

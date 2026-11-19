@@ -5,14 +5,18 @@
   "license": "MIT",
   "packageManager": "pnpm@10.10.0",
   "scripts": {
-    "dev": "pnpm dev:server",
+    "dev": "concurrently -n server,client -c green,blue \"pnpm dev:server\" \"pnpm dev:client\"",
     "dev:server": "pnpm --filter server dev",
     "dev:db": "docker compose up -d",
     "dev:db:down": "docker compose down",
     "dev:db:logs": "docker compose logs -f db",
-    "build": "pnpm --filter server build",
+    "build": "pnpm --filter server build && pnpm --filter client build",
     "test": "pnpm --filter server test",
     "lint": "pnpm --filter server lint",
-    "db:migrate": "pnpm --filter server migrate:up"
+    "db:migrate": "pnpm --filter server migrate:up",
+    "dev:client": "pnpm --filter client dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.5"
   }
 }
