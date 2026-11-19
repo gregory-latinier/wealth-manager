@@ -180,12 +180,12 @@ Size key: S = 1-2 files, M = 3-5 files.
 
 ## Phase 4: Dashboard
 
-- [ ] **T16: Dashboard API** (S)
+- [x] **T16: Dashboard API** (S)
   - Description: `GET /api/dashboard` returning the latest totals, 1-day and 7-day change (or null when history is shorter), the time series, and the per-asset breakdown for a given date, with stale and partial markers.
   - Acceptance:
-    - [ ] With 0 snapshots, 1 snapshot and many snapshots, the response is correct and never errors (SC10)
-    - [ ] Changes are computed in decimal math from stored values
-    - [ ] Stale lines carry `staleSince`
+    - [x] With 0 snapshots, 1 snapshot and many snapshots, the response is correct and never errors (SC10)
+    - [x] Changes are computed in decimal math from stored values
+    - [x] Stale lines carry `staleSince`
   - Verify: `pnpm --filter server test`
   - Dependencies: T11
   - Files: `server/src/routes/dashboard.ts`, `server/src/routes/dashboard.test.ts`

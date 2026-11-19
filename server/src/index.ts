@@ -4,6 +4,7 @@ import rateLimit from '@fastify/rate-limit'
 import { assertConfig } from './lib/config'
 import { healthRoutes } from './routes/health'
 import { authRoutes } from './routes/auth'
+import { dashboardRoutes } from './routes/dashboard'
 import { adminCryptoRoutes, type AdminCryptoOptions } from './routes/admin-crypto'
 import { snapshotRoutes, type SnapshotRouteOptions } from './routes/snapshots'
 import { registerDefaultSources } from './sources/register-defaults'
@@ -30,6 +31,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(healthRoutes, { prefix: '/api' })
   await app.register(authRoutes, { prefix: '/api/auth' })
   await app.register(adminCryptoRoutes, { prefix: '/api/admin/crypto', ...options.adminCrypto })
+  await app.register(dashboardRoutes, { prefix: '/api/dashboard' })
   await app.register(snapshotRoutes, { prefix: '/api/snapshots', ...options.snapshots })
 
   return app
