@@ -61,11 +61,11 @@ Size key: S = 1-2 files, M = 3-5 files.
 
 ## Phase 2: Snapshot engine
 
-- [ ] **T6: Money helpers and FX adapter** (M)
-  - Description: Decimal helpers (`decimal.js`, pending your confirmation) and the USD/EUR rate adapter (Frankfurter) behind an interface.
+- [x] **T6: Money helpers and FX adapter** (M)
+  - Description: Decimal helpers (`decimal.js`) and the USD/EUR rate adapter (Frankfurter) behind an interface. Frankfurter returns EUR per USD, so the adapter inverts it once to the stored `usdPerEur` (8 decimals, ROUND_HALF_UP).
   - Acceptance:
-    - [ ] USD to EUR conversion is exact against hand-computed fixtures, with no float artifacts
-    - [ ] FX adapter parses the fixture and rejects malformed or zero rates
+    - [x] USD to EUR conversion is exact against hand-computed fixtures, with no float artifacts
+    - [x] FX adapter parses the fixture and rejects malformed or zero rates
   - Verify: `pnpm --filter server test`
   - Dependencies: T1, T3
   - Files: `server/src/lib/money.ts`, `server/src/lib/money.test.ts`, `server/src/sources/fx/frankfurter.ts`, `server/src/sources/fx/frankfurter.test.ts`
