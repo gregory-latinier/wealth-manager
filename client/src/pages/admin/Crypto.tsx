@@ -24,6 +24,8 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
+import AddIcon from '@mui/icons-material/Add'
+import WalletIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
 import DeleteIcon from '@mui/icons-material/DeleteOutlined'
 import EditIcon from '@mui/icons-material/EditOutlined'
 import TokenIcon from '@mui/icons-material/TokenOutlined'
@@ -230,11 +232,16 @@ export default function Crypto() {
 
   return (
     <AdminNav>
-      <Stack direction="row" sx={{ mb: 2, alignItems: 'center' }}>
-        <Typography variant="h5" component="h1" sx={{ flexGrow: 1 }}>
-          Crypto addresses
-        </Typography>
-        <Button variant="contained" onClick={() => setAdding(true)}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ mb: 3, alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2 }}>
+        <Box sx={{ flexGrow: 1 }}>
+          <Typography variant="h5" component="h1">
+            Crypto addresses
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Public addresses only. Native coins are tracked automatically, tokens are picked per address.
+          </Typography>
+        </Box>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAdding(true)}>
           Add address
         </Button>
       </Stack>
@@ -248,17 +255,32 @@ export default function Crypto() {
         </Box>
       )}
 
-      {addresses?.length === 0 && <Typography color="text.secondary">No address yet. Add one to start tracking it.</Typography>}
+      {addresses?.length === 0 && (
+        <Paper variant="outlined" sx={{ p: { xs: 4, sm: 8 }, textAlign: 'center' }}>
+          <Box sx={{ display: 'inline-grid', placeItems: 'center', width: 64, height: 64, borderRadius: '50%', bgcolor: 'action.selected', color: 'primary.main', mb: 2 }}>
+            <WalletIcon fontSize="large" aria-hidden />
+          </Box>
+          <Typography variant="h6" component="h2" gutterBottom>
+            No address yet
+          </Typography>
+          <Typography color="text.secondary" sx={{ maxWidth: 420, mx: 'auto', mb: 3 }}>
+            Add a Bitcoin, Ethereum or Base address to start tracking it. Only the public address is needed, never a key or seed phrase.
+          </Typography>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAdding(true)}>
+            Add address
+          </Button>
+        </Paper>
+      )}
 
       {addresses && addresses.length > 0 && (
         <TableContainer component={Paper} variant="outlined">
-          <Table>
+          <Table sx={{ '& tbody tr:last-child td': { borderBottom: 0 }, '& th, & td': { px: { xs: 1, sm: 2 } } }}>
             <TableHead>
               <TableRow>
                 <TableCell>Address</TableCell>
-                <TableCell>Chain</TableCell>
+                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Chain</TableCell>
                 <TableCell align="right">Last value</TableCell>
-                <TableCell align='center'>Tracked</TableCell>
+                <TableCell align="center">Tracked</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -269,17 +291,24 @@ export default function Crypto() {
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {a.label ?? 'Unlabeled'}
                     </Typography>
+                    <Typography variant="caption" color="text.secondary" component="div" sx={{ display: { xs: 'block', sm: 'none' } }}>
+                      {CHAIN_LABEL[a.chain]}
+                    </Typography>
                     <Tooltip title={a.address}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>
                         {shortAddress(a.address)}
                       </Typography>
                     </Tooltip>
                   </TableCell>
-                  <TableCell>{CHAIN_LABEL[a.chain]}</TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                    <Chip size="small" variant="outlined" label={CHAIN_LABEL[a.chain]} />
+                  </TableCell>
                   <TableCell align="right">
                     {a.lastValue ? (
                       <>
-                        <Typography variant="body2">{formatMoney(a.lastValue.usd, 'USD')}</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                          {formatMoney(a.lastValue.usd, 'USD')}
+                        </Typography>
                         <Typography variant="caption" color="text.secondary">
                           {formatMoney(a.lastValue.eur, 'EUR')} · {a.lastValue.date}
                         </Typography>
@@ -291,7 +320,7 @@ export default function Crypto() {
                       </Typography>
                     )}
                   </TableCell>
-                  <TableCell align='center'>
+                  <TableCell align="center">
                     <Switch
                       checked={a.active}
                       onChange={() => void togglePaused(a)}

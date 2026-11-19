@@ -25,13 +25,21 @@ export default function Breakdown({ lines, currency }: { lines: BreakdownLine[];
 
   return (
     <TableContainer>
-      <Table size="small">
+      <Table
+        sx={{
+          '& tbody tr:last-child td': { borderBottom: 0 },
+          '& tbody tr:hover': { bgcolor: 'action.hover' },
+          '& th, & td': { px: { xs: 1, sm: 2 } },
+        }}
+      >
         <TableHead>
           <TableRow>
             <TableCell>Asset</TableCell>
-            <TableCell align="right">Amount</TableCell>
+            <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+              Amount
+            </TableCell>
             <TableCell align="right">Value</TableCell>
-            <TableCell sx={{ width: '28%' }}>Share</TableCell>
+            <TableCell sx={{ width: '28%', display: { xs: 'none', md: 'table-cell' } }}>Share</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -58,16 +66,20 @@ export default function Breakdown({ lines, currency }: { lines: BreakdownLine[];
                     </Tooltip>
                   )}
                 </TableCell>
-                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', display: { xs: 'none', sm: 'table-cell' } }}>
                   {trimAmount(l.amount)}
                 </TableCell>
                 <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                   {formatMoney(currency === 'USD' ? l.valueUsd : l.valueEur, currency)}
+                  {/* The Amount column is hidden on phones, so the amount moves under the value. */}
+                  <Typography variant="caption" color="text.secondary" component="div" sx={{ display: { xs: 'block', sm: 'none' } }}>
+                    {trimAmount(l.amount)} {l.symbol}
+                  </Typography>
                 </TableCell>
-                <TableCell>
+                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ flexGrow: 1, height: 8 }}>
-                      <Box sx={{ width: `${share}%`, height: '100%', bgcolor: BAR[theme.palette.mode], borderRadius: '0 4px 4px 0' }} />
+                    <Box sx={{ flexGrow: 1, height: 8, borderRadius: 4, bgcolor: 'action.hover' }}>
+                      <Box sx={{ width: `${share}%`, height: '100%', bgcolor: BAR[theme.palette.mode], borderRadius: 4 }} />
                     </Box>
                     <Typography variant="caption" color="text.secondary" sx={{ minWidth: 44, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                       {share.toFixed(1)}%

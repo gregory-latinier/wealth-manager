@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { Alert, Box, Button, Container, Paper, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material'
+import Logo from '../components/Logo'
 import { loginErrorMessage, useAuth } from '../lib/auth'
 
 export default function Login() {
@@ -30,9 +31,19 @@ export default function Login() {
   }
 
   return (
-    <Container maxWidth="xs" sx={{ py: 10 }}>
-      <Paper component="form" onSubmit={onSubmit} sx={{ p: 4, display: 'grid', gap: 2 }}>
-        <Typography variant="h5">Wealth Manager</Typography>
+    <Box sx={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', p: 2 }}>
+      <Paper variant="outlined" component="form" onSubmit={onSubmit} sx={{ width: '100%', maxWidth: 400, p: { xs: 3, sm: 4 }, display: 'grid', gap: 2.5 }}>
+        <Stack spacing={1.5} sx={{ alignItems: 'center', textAlign: 'center' }}>
+          <Logo size={56} />
+          <Box>
+            <Typography variant="h5" component="h1">
+              Wealth Manager
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Sign in to see your net worth
+            </Typography>
+          </Box>
+        </Stack>
         {error && <Alert severity="error">{error}</Alert>}
         <TextField
           label="Password"
@@ -43,12 +54,10 @@ export default function Login() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <Box>
-          <Button type="submit" variant="contained" disabled={submitting || !password} fullWidth>
-            Sign in
-          </Button>
-        </Box>
+        <Button type="submit" variant="contained" size="large" disabled={submitting || !password} fullWidth>
+          Sign in
+        </Button>
       </Paper>
-    </Container>
+    </Box>
   )
 }

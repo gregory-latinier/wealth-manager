@@ -1,8 +1,10 @@
-import { Alert, Box, CircularProgress, Paper, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { Alert, Box, Button, Paper, Skeleton, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import ArrowDownIcon from '@mui/icons-material/ArrowDownward'
 import ArrowUpIcon from '@mui/icons-material/ArrowUpward'
 import RemoveIcon from '@mui/icons-material/Remove'
+import InsightsIcon from '@mui/icons-material/InsightsOutlined'
 import { useEffect, useState } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 import AdminNav from '../components/AdminNav'
 import Breakdown from '../components/Breakdown'
 import NetWorthChart from '../components/NetWorthChart'
@@ -10,36 +12,89 @@ import { ApiError } from '../lib/api'
 import { formatMoney } from '../lib/crypto'
 import { fetchDashboard, type Change, type Currency, type DashboardData } from '../lib/dashboard'
 
-/** Signed change with an arrow and a sign, so direction never depends on color alone. */
-function ChangeFigure({ label, change, currency }: { label: string; change: Change | null; currency: Currency }) {
+/**
+ * Signed change as a pill. Direction is carried by the arrow and the sign, color only reinforces it.
+ * A rise is not always good news for every reader, so the colors stay on the conventional green/red pair
+ * and the text says the same thing.
+ */
+function ChangePill({ label, change, currency }: { label: string; change: Change | null; currency: Currency }) {
   const figure = change ? (currency === 'USD' ? change.usd : change.eur) : null
   const sign = figure ? Math.sign(Number(figure.abs)) : 0
   const Icon = sign > 0 ? ArrowUpIcon : sign < 0 ? ArrowDownIcon : RemoveIcon
+  const tone = sign > 0 ? 'success' : sign < 0 ? 'error' : 'text'
+
   return (
     <Box>
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="overline" color="text.secondary" component="div">
         {label}
       </Typography>
       {figure && change ? (
         <>
-          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-            <Icon fontSize="small" aria-hidden />
-            <Typography variant="h6" component="p" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+          <Box
+            sx={(t) => ({
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.5,
+              px: 1.25,
+              py: 0.5,
+              borderRadius: 999,
+              fontVariantNumeric: 'tabular-nums',
+              fontWeight: 650,
+              fontSize: 15,
+              ...(tone === 'text'
+                ? { bgcolor: 'action.hover', color: 'text.secondary' }
+                : { bgcolor: `color-mix(in srgb, ${(t.vars ?? t).palette[tone].main} 14%, transparent)`, color: `${tone}.main` }),
+            })}
+          >
+            <Icon sx={{ fontSize: 16 }} aria-hidden />
+            <span>
               {sign > 0 ? '+' : ''}
               {formatMoney(figure.abs, currency)}
               {figure.pct !== null && ` (${sign > 0 ? '+' : ''}${figure.pct}%)`}
-            </Typography>
-          </Stack>
-          <Typography variant="caption" color="text.secondary">
+            </span>
+          </Box>
+          <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
             since {change.since}
           </Typography>
         </>
       ) : (
-        <Typography variant="h6" component="p" color="text.secondary">
-          Not enough history
+        <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
+          Not enough history yet
         </Typography>
       )}
     </Box>
+  )
+}
+
+function DashboardSkeleton() {
+  return (
+    <Stack spacing={3} aria-busy="true" aria-label="Loading the dashboard">
+      <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 4 } }}>
+        <Skeleton width={120} />
+        <Skeleton variant="text" sx={{ fontSize: 56, maxWidth: 360 }} />
+        <Skeleton variant="rounded" height={240} sx={{ mt: 3 }} />
+      </Paper>
+      <Skeleton variant="rounded" height={160} />
+    </Stack>
+  )
+}
+
+function EmptyState() {
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 4, sm: 8 }, textAlign: 'center' }}>
+      <Box sx={{ display: 'inline-grid', placeItems: 'center', width: 64, height: 64, borderRadius: '50%', bgcolor: 'action.selected', color: 'primary.main', mb: 2 }}>
+        <InsightsIcon fontSize="large" aria-hidden />
+      </Box>
+      <Typography variant="h6" component="h1" gutterBottom>
+        No snapshot yet
+      </Typography>
+      <Typography color="text.secondary" sx={{ maxWidth: 440, mx: 'auto', mb: 3 }}>
+        Add an address under Crypto. The daily cron (or <code>pnpm snapshot:run</code>) then records the first snapshot and your net worth appears here.
+      </Typography>
+      <Button component={RouterLink} to="/admin/crypto" variant="contained">
+        Add an address
+      </Button>
+    </Paper>
   )
 }
 
@@ -78,36 +133,18 @@ export default function Dashboard() {
   return (
     <AdminNav>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
 
-      {!data && !error && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      )}
+      {!data && !error && <DashboardSkeleton />}
 
-      {data && !latest && (
-        <Typography color="text.secondary">
-          No snapshot yet. Add an address under Crypto, then the daily cron (or <code>pnpm snapshot:run</code>) records the first one.
-        </Typography>
-      )}
+      {data && !latest && <EmptyState />}
 
       {/* While a new date loads, the previous render stays in place at reduced opacity. */}
       {data && latest && (
         <Stack spacing={3} sx={{ opacity: loading ? 0.6 : 1, transition: 'opacity 150ms' }} aria-busy={loading}>
-          <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="h5" component="h1">
-              Net worth
-            </Typography>
-            <ToggleButtonGroup size="small" exclusive value={currency} onChange={(_, v: Currency | null) => v && setCurrency(v)} aria-label="Currency">
-              <ToggleButton value="USD">USD</ToggleButton>
-              <ToggleButton value="EUR">EUR</ToggleButton>
-            </ToggleButtonGroup>
-          </Stack>
-
           {latest.status === 'partial' && (
             <Alert severity="warning">
               Today&rsquo;s snapshot is partial: some holdings could not be read and show their last known value (marked stale below).
@@ -115,40 +152,54 @@ export default function Dashboard() {
           )}
           {latest.rateStale && <Alert severity="info">The USD/EUR rate could not be refreshed, so the last known rate was used.</Alert>}
 
-          <Paper variant="outlined" sx={{ p: 3 }}>
-            <Typography variant="body2" color="text.secondary">
-              As of {latest.date} (UTC)
-            </Typography>
-            <Typography component="p" sx={{ fontSize: 56, lineHeight: 1.1, fontWeight: 600, my: 1 }}>
-              {formatMoney(currency === 'USD' ? latest.totalUsd : latest.totalEur, currency)}
-            </Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 2, sm: 6 }} sx={{ mt: 2 }}>
-              <ChangeFigure label="1 day" change={data.change.day} currency={currency} />
-              <ChangeFigure label="7 days" change={data.change.week} currency={currency} />
+          <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 4 } }}>
+            <Stack direction="row" sx={{ alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+              <Box>
+                <Typography variant="overline" color="text.secondary" component="h1">
+                  Net worth
+                </Typography>
+                <Typography
+                  component="p"
+                  sx={{ fontSize: { xs: 40, sm: 56 }, lineHeight: 1.1, fontWeight: 700, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {formatMoney(currency === 'USD' ? latest.totalUsd : latest.totalEur, currency)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  As of {latest.date} (UTC)
+                </Typography>
+              </Box>
+              <ToggleButtonGroup size="small" exclusive value={currency} onChange={(_, v: Currency | null) => v && setCurrency(v)} aria-label="Currency">
+                <ToggleButton value="USD">USD</ToggleButton>
+                <ToggleButton value="EUR">EUR</ToggleButton>
+              </ToggleButtonGroup>
             </Stack>
-          </Paper>
 
-          <Paper variant="outlined" sx={{ p: 3 }}>
-            <Typography variant="subtitle1" component="h2" sx={{ mb: 1 }}>
-              Evolution in {currency}
-            </Typography>
-            <NetWorthChart series={data.series} currency={currency} selectedDate={shownDate} onSelectDate={(d) => setDate(d === latest.date ? null : d)} />
-            {data.series.length >= 2 && (
-              <Typography variant="caption" color="text.secondary">
-                Click a day to see its holdings.
-              </Typography>
-            )}
-          </Paper>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 2, sm: 5 }} sx={{ mt: 3 }}>
+              <ChangePill label="1 day" change={data.change.day} currency={currency} />
+              <ChangePill label="7 days" change={data.change.week} currency={currency} />
+            </Stack>
 
-          <Paper variant="outlined" sx={{ p: 3 }}>
-            <Typography variant="subtitle1" component="h2" sx={{ mb: 1 }}>
-              Holdings on {shownDate}
-              {!isLatest && (
-                <Typography component="button" variant="body2" onClick={() => setDate(null)} sx={{ ml: 2, cursor: 'pointer', background: 'none', border: 0, color: 'primary.main', textDecoration: 'underline' }}>
-                  Back to latest
+            <Box sx={{ mt: 4 }}>
+              <NetWorthChart series={data.series} currency={currency} selectedDate={shownDate} onSelectDate={(d) => setDate(d === latest.date ? null : d)} />
+              {data.series.length >= 2 && (
+                <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1 }}>
+                  Click a day on the chart to see its holdings.
                 </Typography>
               )}
-            </Typography>
+            </Box>
+          </Paper>
+
+          <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+            <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1, px: { xs: 0.5, sm: 0 } }}>
+              <Typography variant="subtitle1" component="h2">
+                Holdings on {shownDate}
+              </Typography>
+              {!isLatest && (
+                <Button size="small" onClick={() => setDate(null)}>
+                  Back to latest
+                </Button>
+              )}
+            </Stack>
             {data.breakdown && <Breakdown lines={data.breakdown.lines} currency={currency} />}
           </Paper>
         </Stack>

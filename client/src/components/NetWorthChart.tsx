@@ -23,7 +23,7 @@ function ChartTooltip({ active, payload, currency }: TooltipProps) {
   if (!active || !payload?.length) return null
   const p = payload[0].payload
   return (
-    <Box sx={{ bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, px: 1.5, py: 1, boxShadow: 2 }}>
+    <Box sx={{ bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, px: 1.5, py: 1, boxShadow: 0 }}>
       <Typography variant="caption" color="text.secondary" component="div">
         {p.date}
       </Typography>
@@ -80,6 +80,12 @@ export default function NetWorthChart({
             if (typeof label === 'string') onSelectDate(label)
           }}
         >
+          <defs>
+            <linearGradient id="wm-area" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor={color} stopOpacity={0.28} />
+              <stop offset="1" stopColor={color} stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
           <CartesianGrid vertical={false} stroke={theme.palette.divider} strokeWidth={1} />
           <XAxis dataKey="date" tickLine={false} axisLine={{ stroke: theme.palette.divider }} tick={{ fill: theme.palette.text.secondary, fontSize: 12 }} minTickGap={32} />
           <YAxis
@@ -98,8 +104,7 @@ export default function NetWorthChart({
             strokeWidth={2}
             strokeLinejoin="round"
             strokeLinecap="round"
-            fill={color}
-            fillOpacity={0.1}
+            fill="url(#wm-area)"
             dot={false}
             activeDot={{ r: 5, fill: color, stroke: surface, strokeWidth: 2 }}
             isAnimationActive={false}

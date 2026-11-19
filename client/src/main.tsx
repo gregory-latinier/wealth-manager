@@ -1,12 +1,10 @@
+import '@fontsource-variable/inter'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
+import { CssBaseline, ThemeProvider } from '@mui/material'
 import App from './App'
-
-const theme = createTheme({
-  colorSchemes: { light: true, dark: true },
-})
+import { theme } from './theme'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
