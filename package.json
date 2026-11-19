@@ -13,6 +13,7 @@
     "build": "pnpm --filter server build && pnpm --filter client build",
     "test": "pnpm --filter server test",
     "lint": "pnpm --filter server lint",
+    "hash-password": "pnpm --filter server hash-password",
     "db:migrate": "pnpm --filter server migrate:up",
     "dev:client": "pnpm --filter client dev"
   },

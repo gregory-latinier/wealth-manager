@@ -34,13 +34,13 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Dependencies: T1
   - Files: `docs/providers.md`, `server/src/sources/crypto/__fixtures__/*.json`
 
-- [ ] **T4: Auth API (password login, sessions, rate limit)** (M)
-  - Description: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `Session` migration, `requireAuth`, and `pnpm hash-password`.
+- [x] **T4: Auth API (password login, sessions, rate limit)** (M)
+  - Description: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `Session` migration, `requireAuth`, and `pnpm hash-password`. Session tokens are stored as SHA-256 hashes. Tests run against a separate `wealthmanager_test` database that Jest creates and migrates itself.
   - Acceptance:
-    - [ ] Wrong password returns 401 with no cookie. Right password returns 200 with an httpOnly cookie (`Secure` in production) (SC1)
-    - [ ] Protected routes return 401 without a session (SC1)
-    - [ ] 10 failed logins in a minute from one IP returns 429 (SC1)
-    - [ ] Missing `APP_PASSWORD_HASH` makes the server refuse to start with a clear message
+    - [x] Wrong password returns 401 with no cookie. Right password returns 200 with an httpOnly cookie (`Secure` in production) (SC1)
+    - [x] Protected routes return 401 without a session (SC1)
+    - [x] 10 failed logins in a minute from one IP returns 429 (SC1)
+    - [x] Missing `APP_PASSWORD_HASH` makes the server refuse to start with a clear message
   - Verify: `pnpm --filter server test` (integration tests on real PostgreSQL)
   - Dependencies: T1
   - Files: `server/migrations/002_session.ts`, `server/src/lib/auth.ts`, `server/src/routes/auth.ts`, `server/src/lib/auth.test.ts`, `scripts/hash-password.mjs`

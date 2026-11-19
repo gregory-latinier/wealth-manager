@@ -1,9 +1,5 @@
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg'
-import dotenv from 'dotenv'
-import path from 'path'
-
-// Local dev reads ../.env (repo root). In production the variables come from cPanel.
-dotenv.config({ path: path.join(__dirname, '../../../.env') })
+import '../lib/env'
 
 const connectionString =
   process.env.DATABASE_URL || 'postgresql://wmuser:wmpassword@localhost:5433/wealthmanager'
