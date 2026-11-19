@@ -79,6 +79,14 @@ Split reading from discovering:
 - No key. The docs say rates are reference rates (not live quotes) and update through the day. They also say requests are rate-limited, with no numbers given.
 - The response includes `date`. The adapter should store it, so a stale rate (a weekend or holiday rate reused) is visible.
 
+### Base token scan with a Blockscout key (from the docs, NOT live-verified)
+
+Looked up in the Blockscout docs while building T12. No key was available, so this shape has only been read, not called.
+
+- `GET https://api.blockscout.com/8453/api/v2/addresses/{address}/tokens?type=ERC-20`, with the key as `Authorization: Bearer <key>` (an `apikey` query parameter also works).
+- The response is paged: `{ items: [...], next_page_params: {...} | null }`. Each item has the same `token` and `value` fields as the keyless Ethereum list. The next page is requested by passing the `next_page_params` entries back as query parameters. The adapter follows at most 10 pages.
+- The first real Base scan with a key should confirm this. Until then it is the least-tested path in the scan.
+
 ## Decisions (owner answered 2026-11-19)
 
 1. **Option A:** a free Blockscout key for the Base scan only (`BLOCKSCOUT_API_KEY`). The scan is disabled with a clear message if the key is unset.

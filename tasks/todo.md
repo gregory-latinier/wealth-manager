@@ -130,16 +130,16 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Dependencies: T8, T9, T10
   - Files: `server/src/sources/crypto/index.ts`, `server/src/sources/crypto/index.test.ts`, `server/src/sources/register-defaults.ts` (one registration line per source type, called from `start()` and `snapshot:run`)
 
-- [ ] **T12: Token scan API and threshold setting** (M)
+- [x] **T12: Token scan API and threshold setting** (M)
   - Description: `POST /api/admin/crypto/addresses/:id/scan` returns tokens grouped as above-threshold, unpriced, and hidden (spam or ignored). Adds the `blockscout.ts` scan adapter (Ethereum keyless, Base with `BLOCKSCOUT_API_KEY`), keeps only `ERC-20` entries, uses a 60 s timeout because big wallets take about 25 s, and returns a clear "Base scan disabled, no key set" result when the key is missing. `Setting` and `IgnoredToken` migration, threshold get/set, ignore and unignore.
   - Acceptance:
-    - [ ] Tokens at or above the threshold (default $10, configurable) are returned as selectable (SC4)
-    - [ ] Unpriced tokens are in a separate group and not preselected. Spam-flagged and ignored tokens are hidden by default (SC4)
-    - [ ] An ignored token never appears in a later scan's default list
-    - [ ] BTC addresses return an empty scan, not an error
+    - [x] Tokens at or above the threshold (default $10, configurable) are returned as selectable (SC4)
+    - [x] Unpriced tokens are in a separate group and not preselected. Spam-flagged and ignored tokens are hidden by default (SC4)
+    - [x] An ignored token never appears in a later scan's default list
+    - [x] BTC addresses return an empty scan, not an error (Base without a key returns a "disabled" result with a message, also not an error. The Base request shape is from the docs only, see providers.md)
   - Verify: `pnpm --filter server test` (fixtures)
   - Dependencies: T9, T10
-  - Files: `server/migrations/005_settings_ignored.ts`, `server/src/sources/crypto/scan.ts`, `server/src/routes/admin-crypto.ts`, `server/src/sources/crypto/scan.test.ts`
+  - Files: `server/migrations/005_settings_ignored.ts`, `server/src/sources/crypto/scan.ts`, `.../settings.ts`, `.../providers/blockscout.ts`, `server/src/routes/admin-crypto.ts`, `server/src/sources/crypto/scan.test.ts`
 
 - [ ] **T13: Tracked tokens, manual add, and token valuation** (M)
   - Description: Save the tokens the owner selects, add a token by `(chain, contract)` (symbol and decimals read from chain data), pause and delete tokens, and include tracked tokens in the crypto `collect()`.
