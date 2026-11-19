@@ -110,15 +110,15 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Dependencies: T4
   - Files: `server/migrations/004_crypto.ts`, `server/src/sources/crypto/addresses.ts`, `server/src/routes/admin-crypto.ts`, `server/src/routes/admin-crypto.test.ts`, `server/src/sources/crypto/validate.ts`
 
-- [ ] **T10: Balance and price adapters** (M)
+- [x] **T10: Balance and price adapters** (M)
   - Description: Interfaces plus adapters, built on the T3 findings ([docs/providers.md](../docs/providers.md)): `btc.ts` (mempool.space, confirmed balance in sats), `evm-rpc.ts` (batched JSON-RPC: native balance, ERC-20 `balanceOf`, `decimals()` and `symbol()` including bytes32 symbols, with a configurable fallback RPC URL per chain), and `coingecko.ts` (native and by-contract prices, where a missing key means unpriced). The Blockscout scan adapter is built in T12, not here.
   - Acceptance:
-    - [ ] Each adapter parses its recorded fixtures into typed results using decimal strings
-    - [ ] Provider errors, timeouts and malformed bodies raise typed errors and never return a silent 0
-    - [ ] Per-provider request timeout and a small concurrency cap are enforced
+    - [x] Each adapter parses its recorded fixtures into typed results using decimal strings
+    - [x] Provider errors, timeouts and malformed bodies raise typed errors and never return a silent 0 (a failing token is reported per token, a failing native balance fails the address)
+    - [x] Per-provider request timeout and a small concurrency cap are enforced
   - Verify: `pnpm --filter server test` (fixtures only, no live network)
   - Dependencies: T3, T6
-  - Files: `server/src/sources/crypto/providers/btc.ts`, `.../blockscout.ts`, `.../coingecko.ts`, `.../providers.test.ts`, `server/src/sources/crypto/providers/types.ts`
+  - Files: `server/src/sources/crypto/providers/btc.ts`, `.../evm-rpc.ts`, `.../coingecko.ts`, `.../http.ts`, `.../types.ts`, `.../providers.test.ts`
 
 - [ ] **T11: Crypto `SourceType` (native coins) wired into the engine** (S)
   - Description: Implement `collect()` for active addresses and their native coin, using the adapters, and register it. First real snapshot.
