@@ -100,12 +100,12 @@ Size key: S = 1-2 files, M = 3-5 files.
 
 ## Phase 3: Crypto source
 
-- [ ] **T9: Crypto addresses API** (M)
-  - Description: `CryptoAddress` and `CryptoAsset` migration, plus CRUD for addresses (add, edit label, pause, delete) with chain and address validation and normalization.
+- [x] **T9: Crypto addresses API** (M)
+  - Description: `CryptoAddress` and `CryptoAsset` migration, plus CRUD for addresses (add, edit label, pause, delete) with chain and address validation and normalization. Format-only validation (no checksum). Adding an address also creates its native asset row. Request bodies reject unknown fields with 400 (app-wide Ajv `removeAdditional: false`).
   - Acceptance:
-    - [ ] Valid BTC, ETH and Base addresses are stored (EVM lowercased). Malformed returns 400, duplicate `(chain, address)` returns 409 (SC3)
-    - [ ] Pause and delete never touch `SnapshotLine` rows (SC6)
-    - [ ] All routes require a session (SC1)
+    - [x] Valid BTC, ETH and Base addresses are stored (EVM lowercased). Malformed returns 400, duplicate `(chain, address)` returns 409 (SC3)
+    - [x] Pause and delete never touch `SnapshotLine` rows (SC6)
+    - [x] All routes require a session (SC1)
   - Verify: `pnpm --filter server test`
   - Dependencies: T4
   - Files: `server/migrations/004_crypto.ts`, `server/src/sources/crypto/addresses.ts`, `server/src/routes/admin-crypto.ts`, `server/src/routes/admin-crypto.test.ts`, `server/src/sources/crypto/validate.ts`

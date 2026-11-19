@@ -4,6 +4,7 @@ import rateLimit from '@fastify/rate-limit'
 import { assertConfig } from './lib/config'
 import { healthRoutes } from './routes/health'
 import { authRoutes } from './routes/auth'
+import { adminCryptoRoutes } from './routes/admin-crypto'
 import { snapshotRoutes, type SnapshotRouteOptions } from './routes/snapshots'
 
 export interface BuildAppOptions {
@@ -16,6 +17,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     // Behind Passenger the client address arrives in X-Forwarded-For. Without this every visitor
     // shares the proxy's address and the login rate limit would lock the owner out with the attacker.
     trustProxy: process.env.NODE_ENV === 'production',
+    // Fastify strips unknown body fields by default. Reject them instead, so a client that sends
+    // an immutable or misspelled field gets a 400 rather than a silent no-op.
+    ajv: { customOptions: { removeAdditional: false } },
   })
 
   await app.register(cookie)
@@ -23,6 +27,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
   await app.register(healthRoutes, { prefix: '/api' })
   await app.register(authRoutes, { prefix: '/api/auth' })
+  await app.register(adminCryptoRoutes, { prefix: '/api/admin/crypto' })
   await app.register(snapshotRoutes, { prefix: '/api/snapshots', ...options.snapshots })
 
   return app
