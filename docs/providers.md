@@ -79,7 +79,13 @@ Split reading from discovering:
 - No key. The docs say rates are reference rates (not live quotes) and update through the day. They also say requests are rate-limited, with no numbers given.
 - The response includes `date`. The adapter should store it, so a stale rate (a weekend or holiday rate reused) is visible.
 
-## Decisions for the owner
+## Decisions (owner answered 2026-11-19)
+
+1. **Option A:** a free Blockscout key for the Base scan only (`BLOCKSCOUT_API_KEY`). The scan is disabled with a clear message if the key is unset.
+2. **RPC for daily balances:** approved.
+3. **Default public RPC URLs, overridable by env var:** approved.
+
+The options as they were presented:
 
 1. **Base token scan has no keyless source.** Options:
    - **A (recommended): free API key.** Get a free Blockscout key (5 req/s, 100K credits/day) for `api.blockscout.com`, kept in an env var and used only for the Base scan. The spec already allows adding a free key later. The scan stays automatic on both chains.

@@ -111,7 +111,7 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Files: `server/migrations/004_crypto.ts`, `server/src/sources/crypto/addresses.ts`, `server/src/routes/admin-crypto.ts`, `server/src/routes/admin-crypto.test.ts`, `server/src/sources/crypto/validate.ts`
 
 - [ ] **T10: Balance and price adapters** (M)
-  - Description: Interfaces plus adapters for BTC balance, EVM native balance (ETH, Base), ERC-20 balances, and USD prices (native and by contract), built on the T3 findings.
+  - Description: Interfaces plus adapters, built on the T3 findings ([docs/providers.md](../docs/providers.md)): `btc.ts` (mempool.space, confirmed balance in sats), `evm-rpc.ts` (batched JSON-RPC: native balance, ERC-20 `balanceOf`, `decimals()` and `symbol()` including bytes32 symbols, with a configurable fallback RPC URL per chain), and `coingecko.ts` (native and by-contract prices, where a missing key means unpriced). The Blockscout scan adapter is built in T12, not here.
   - Acceptance:
     - [ ] Each adapter parses its recorded fixtures into typed results using decimal strings
     - [ ] Provider errors, timeouts and malformed bodies raise typed errors and never return a silent 0
@@ -131,7 +131,7 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Files: `server/src/sources/crypto/index.ts`, `server/src/sources/crypto/index.test.ts`, `server/src/lib/snapshot.ts` (registry line only)
 
 - [ ] **T12: Token scan API and threshold setting** (M)
-  - Description: `POST /api/admin/crypto/addresses/:id/scan` returns tokens grouped as above-threshold, unpriced, and hidden (spam or ignored). `Setting` and `IgnoredToken` migration, threshold get/set, ignore and unignore.
+  - Description: `POST /api/admin/crypto/addresses/:id/scan` returns tokens grouped as above-threshold, unpriced, and hidden (spam or ignored). Adds the `blockscout.ts` scan adapter (Ethereum keyless, Base with `BLOCKSCOUT_API_KEY`), keeps only `ERC-20` entries, uses a 60 s timeout because big wallets take about 25 s, and returns a clear "Base scan disabled, no key set" result when the key is missing. `Setting` and `IgnoredToken` migration, threshold get/set, ignore and unignore.
   - Acceptance:
     - [ ] Tokens at or above the threshold (default $10, configurable) are returned as selectable (SC4)
     - [ ] Unpriced tokens are in a separate group and not preselected. Spam-flagged and ignored tokens are hidden by default (SC4)

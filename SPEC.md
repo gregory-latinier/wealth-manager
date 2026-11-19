@@ -14,11 +14,12 @@ Correct any of these now or I'll proceed with them.
 3. **The snapshot endpoint is `POST /api/snapshots/run`**, guarded by `Authorization: Bearer <SNAPSHOT_TOKEN>`. The token is a separate env var and is compared in constant time. Your o2switch cron calls it with `curl`.
 4. **The "day" is the UTC calendar date.** One snapshot per day. A second call on the same day replaces that day's snapshot (an upsert), so a double cron fire is harmless.
 5. **v1 supports single addresses only.** BTC xpub/zpub wallets are not supported (decided).
-6. **Data providers (to verify against current docs before implementation):**
-   - BTC balances: mempool.space or Blockstream Esplora REST API (no key).
-   - ETH and Base balances plus the token scan: Blockscout REST API for each chain (no key).
-   - Crypto prices in USD: CoinGecko free API. Tokens are priced by contract address on the `ethereum` and `base` platforms. An optional demo key goes in an env var.
-   - USD/EUR rate: Frankfurter (ECB rates, no key).
+6. **Data providers (verified live on 2026-11-19, details in [docs/providers.md](docs/providers.md)):**
+   - BTC balances: mempool.space REST API (no key). Confirmed balance only, in satoshis.
+   - ETH and Base **balances** (native and ERC-20): public JSON-RPC, batched (no key). Defaults are `https://ethereum-rpc.publicnode.com` and `https://mainnet.base.org`, each overridable by env var. This is what the daily snapshot uses, so it never depends on an indexer.
+   - ETH and Base **token scan** (discovery only, when an address is added): Blockscout. Ethereum uses `eth.blockscout.com` keyless. Base needs a free Blockscout API key (`BLOCKSCOUT_API_KEY`, used only for the Base scan), because keyless Base access is blocked. Only `ERC-20` entries are kept, so NFTs are ignored.
+   - Crypto prices in USD: CoinGecko free API (no key). Tokens are priced by contract address on the `ethereum` and `base` platforms. A token CoinGecko doesn't know is omitted from its response and is treated as unpriced. An optional demo key goes in an env var.
+   - USD/EUR rate: Frankfurter (no key). The rate's `date` is stored so a stale rate is visible.
    - Providers sit behind small interfaces, so a fork can swap them.
 7. **Monetary amounts are never JS floats.** Balances are stored as `NUMERIC` and handled as decimal strings, or with a decimal library in the server.
 8. **License is MIT** (decided).
@@ -27,7 +28,7 @@ Correct any of these now or I'll proceed with them.
     - A new entry with no previous value to carry forward is left out of the snapshot and listed as a failure, rather than valued at 0.
     - If the USD/EUR rate lookup fails, the last known rate is carried forward and flagged. If no rate has ever been stored, no snapshot is written.
 11. **No live network calls in tests or CI.** Providers are tested against recorded fixtures.
-12. **Provider API keys:** v1 runs on free keyless tiers. Adding a free key later (for example CoinGecko) is accepted, and the key goes in an env var (decided).
+12. **Provider API keys:** the daily snapshot runs on keyless providers only. The one required key is a free Blockscout key for the **Base token scan**, which is an interactive feature and not part of the cron (decided 2026-11-19). If it is not set, the Base scan is disabled with a clear message, and Base tokens can still be added by contract address. Other keys (for example CoinGecko) are accepted later and go in env vars.
 
 ## Objective
 
