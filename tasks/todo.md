@@ -190,13 +190,13 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Dependencies: T11
   - Files: `server/src/routes/dashboard.ts`, `server/src/routes/dashboard.test.ts`
 
-- [ ] **T17: Dashboard UI** (M)
+- [x] **T17: Dashboard UI** (M)
   - Description: Totals card, 1-day and 7-day change, Recharts time series with a USD/EUR toggle, per-asset breakdown, partial-snapshot warning. Follows the `dataviz` skill.
   - Acceptance:
-    - [ ] Renders correctly with 0, 1 and many snapshots (SC10)
-    - [ ] USD/EUR toggle switches the chart and totals
-    - [ ] Partial snapshots show a warning, and stale lines show their `staleSince` date
-    - [ ] Colors are accessible in light and dark
+    - [x] Renders correctly with 0, 1 and many snapshots (SC10)
+    - [x] USD/EUR toggle switches the chart and totals
+    - [x] Partial snapshots show a warning, and stale lines show their `staleSince` date
+    - [x] Colors are accessible in light and dark
   - Verify: manual walkthrough with seeded snapshots, `pnpm build`
   - Dependencies: T5, T16
   - Files: `client/src/pages/Dashboard.tsx`, `client/src/components/NetWorthChart.tsx`, `client/src/components/Breakdown.tsx`, `client/package.json` (Recharts)
