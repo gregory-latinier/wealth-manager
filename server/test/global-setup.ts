@@ -23,7 +23,7 @@ export default async function globalSetup() {
   testUrl.pathname = `/${TEST_DB}`
 
   const bin = path.join(__dirname, '..', 'node_modules', 'node-pg-migrate', 'bin', 'node-pg-migrate.js')
-  const res = spawnSync(process.execPath, [bin, 'up', '-m', 'migrations'], {
+  const res = spawnSync(process.execPath, ['--import', 'tsx', bin, 'up', '-m', 'migrations'], {
     cwd: path.join(__dirname, '..'),
     env: { ...process.env, DATABASE_URL: testUrl.toString() },
     encoding: 'utf8',
