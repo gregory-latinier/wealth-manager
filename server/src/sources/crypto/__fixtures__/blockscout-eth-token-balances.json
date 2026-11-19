@@ -1,0 +1,117 @@
+[
+  {
+    "token": {
+      "address_hash": "0x00000000000000000000000000000000000a11ce",
+      "circulating_market_cap": "167187336",
+      "circulating_supply": "42315813.45143092",
+      "decimals": "18",
+      "exchange_rate": "3.95",
+      "holders_count": "1",
+      "icon_url": null,
+      "name": "Ethereum Name Service",
+      "new_ui_multiplier": null,
+      "reputation": "ok",
+      "symbol": "ENS",
+      "total_supply": "100000000000000000000000000",
+      "type": "ERC-20",
+      "ui_multiplier": null,
+      "ui_multiplier_effective_at": null,
+      "volume_24h": "6520395"
+    },
+    "token_id": null,
+    "token_instance": null,
+    "value": "1144036076063671431479"
+  },
+  {
+    "token": {
+      "address_hash": "0x00000000000000000000000000000000000a11cf",
+      "circulating_market_cap": "0.0",
+      "circulating_supply": "0.0",
+      "decimals": "18",
+      "exchange_rate": "0.00003274",
+      "holders_count": "1",
+      "icon_url": null,
+      "name": "WhiteRock",
+      "new_ui_multiplier": null,
+      "reputation": "ok",
+      "symbol": "WHITE",
+      "total_supply": "1000000000000000000000000000000",
+      "type": "ERC-20",
+      "ui_multiplier": null,
+      "ui_multiplier_effective_at": null,
+      "volume_24h": "6.81"
+    },
+    "token_id": null,
+    "token_instance": null,
+    "value": "10000000000000000000000000000"
+  },
+  {
+    "token": {
+      "address_hash": "0x00000000000000000000000000000000000a11d0",
+      "circulating_market_cap": null,
+      "circulating_supply": null,
+      "decimals": "18",
+      "exchange_rate": null,
+      "holders_count": "1",
+      "icon_url": null,
+      "name": "Not",
+      "new_ui_multiplier": null,
+      "reputation": "ok",
+      "symbol": "NOT",
+      "total_supply": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "type": "ERC-20",
+      "ui_multiplier": null,
+      "ui_multiplier_effective_at": null,
+      "volume_24h": null
+    },
+    "token_id": null,
+    "token_instance": null,
+    "value": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+  },
+  {
+    "token": {
+      "address_hash": "0x00000000000000000000000000000000000a11d1",
+      "circulating_market_cap": null,
+      "circulating_supply": null,
+      "decimals": "18",
+      "exchange_rate": null,
+      "holders_count": "1",
+      "icon_url": null,
+      "name": "Calculator",
+      "new_ui_multiplier": null,
+      "reputation": "ok",
+      "symbol": "CALCULATOR",
+      "total_supply": "1000000000000000000000",
+      "type": "ERC-721",
+      "ui_multiplier": null,
+      "ui_multiplier_effective_at": null,
+      "volume_24h": null
+    },
+    "token_id": null,
+    "token_instance": null,
+    "value": "1000000000000000000"
+  },
+  {
+    "token": {
+      "address_hash": "0x00000000000000000000000000000000000a11d2",
+      "circulating_market_cap": null,
+      "circulating_supply": null,
+      "decimals": null,
+      "exchange_rate": null,
+      "holders_count": "1",
+      "icon_url": null,
+      "name": "Ethrunes",
+      "new_ui_multiplier": null,
+      "reputation": "ok",
+      "symbol": "ERS",
+      "total_supply": null,
+      "type": "ERC-1155",
+      "ui_multiplier": null,
+      "ui_multiplier_effective_at": null,
+      "volume_24h": null
+    },
+    "token_id": "1154176857723061535322065504370124660086513746726",
+    "token_instance": null,
+    "value": "10000000000000000000000"
+  }
+]

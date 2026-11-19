@@ -24,7 +24,7 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Dependencies: T1
   - Files: `client/package.json`, `client/vite.config.ts`, `client/src/main.tsx`, `client/src/App.tsx`, `client/tsconfig.json`
 
-- [ ] **T3: Provider spike (docs only, no app code)** (S)
+- [x] **T3: Provider spike (docs only, no app code)** (S)
   - Description: Verify the current docs and free-tier limits for Blockstream/mempool.space, Blockscout (ETH and Base), CoinGecko and Frankfurter. Confirm: BTC balance endpoint, EVM native balance, token balances with a spam flag, price by contract on `ethereum` and `base`, rate limits. Save findings and sample responses (with made-up addresses) as fixtures.
   - Acceptance:
     - [ ] `docs/providers.md` lists, per provider, the exact endpoints, limits and gotchas, with doc links
