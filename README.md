@@ -180,6 +180,18 @@ The connection string is written out because a cron job does not see the Node.js
 
 Copy the dumps off the server (rclone to a cloud drive works well) and delete old ones. The database holds addresses and balances but no keys or secrets.
 
+## Install on Android
+
+The app is an installable PWA, so it needs no app store.
+
+1. Deploy it behind **HTTPS** (Android only offers installation on a secure origin).
+2. Open the site in Chrome on the phone and log in.
+3. Menu (three dots), then **Install app** (or **Add to Home screen**).
+
+It then opens full screen with its own icon. Only the app shell is cached for offline start: balances and history always come from the server, and nothing financial is stored in the service worker cache.
+
+The logo lives in `client/public/favicon.svg`. To change it, edit that file and run `pnpm --filter client generate-icons` to regenerate the PNG icons.
+
 ## Security notes
 
 - The app only ever reads public addresses and balances. It never asks for a private key or seed phrase, and neither should you give it one.
