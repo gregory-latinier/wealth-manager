@@ -6,6 +6,7 @@ import { healthRoutes } from './routes/health'
 import { authRoutes } from './routes/auth'
 import { adminCryptoRoutes } from './routes/admin-crypto'
 import { snapshotRoutes, type SnapshotRouteOptions } from './routes/snapshots'
+import { registerDefaultSources } from './sources/register-defaults'
 
 export interface BuildAppOptions {
   snapshots?: SnapshotRouteOptions
@@ -41,6 +42,7 @@ export async function start() {
     process.exit(1)
   }
 
+  registerDefaultSources()
   const app = await buildApp()
   const port = Number(process.env.PORT) || 3001
   try {

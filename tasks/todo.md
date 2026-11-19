@@ -120,15 +120,15 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Dependencies: T3, T6
   - Files: `server/src/sources/crypto/providers/btc.ts`, `.../evm-rpc.ts`, `.../coingecko.ts`, `.../http.ts`, `.../types.ts`, `.../providers.test.ts`
 
-- [ ] **T11: Crypto `SourceType` (native coins) wired into the engine** (S)
+- [x] **T11: Crypto `SourceType` (native coins) wired into the engine** (S)
   - Description: Implement `collect()` for active addresses and their native coin, using the adapters, and register it. First real snapshot.
   - Acceptance:
-    - [ ] With fake adapters, a snapshot contains one line per active address, with values matching hand-computed numbers
-    - [ ] A failing address is reported in `failures`, and the engine carries it forward (SC9)
-    - [ ] Paused addresses are skipped (SC6)
+    - [x] With fake adapters, a snapshot contains one line per active address, with values matching hand-computed numbers
+    - [x] A failing address is reported in `failures`, and the engine carries it forward (SC9). If the price lookup fails, every entry fails rather than being priced at 0
+    - [x] Paused addresses are skipped (SC6)
   - Verify: `pnpm --filter server test`. Optional smoke run against live providers with the owner's own address, kept out of the repo.
   - Dependencies: T8, T9, T10
-  - Files: `server/src/sources/crypto/index.ts`, `server/src/sources/crypto/index.test.ts`, `server/src/lib/snapshot.ts` (registry line only)
+  - Files: `server/src/sources/crypto/index.ts`, `server/src/sources/crypto/index.test.ts`, `server/src/sources/register-defaults.ts` (one registration line per source type, called from `start()` and `snapshot:run`)
 
 - [ ] **T12: Token scan API and threshold setting** (M)
   - Description: `POST /api/admin/crypto/addresses/:id/scan` returns tokens grouped as above-threshold, unpriced, and hidden (spam or ignored). Adds the `blockscout.ts` scan adapter (Ethereum keyless, Base with `BLOCKSCOUT_API_KEY`), keeps only `ERC-20` entries, uses a 60 s timeout because big wallets take about 25 s, and returns a clear "Base scan disabled, no key set" result when the key is missing. `Setting` and `IgnoredToken` migration, threshold get/set, ignore and unignore.

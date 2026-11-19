@@ -10,7 +10,7 @@ export function isChain(value: unknown): value is Chain {
   return typeof value === 'string' && (CHAINS as readonly string[]).includes(value)
 }
 
-export function isEvmChain(chain: Chain): boolean {
+export function isEvmChain(chain: Chain): chain is 'eth' | 'base' {
   return chain === 'eth' || chain === 'base'
 }
 
