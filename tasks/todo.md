@@ -5,7 +5,7 @@ Size key: S = 1-2 files, M = 3-5 files.
 
 ## Phase 1: Foundation
 
-- [ ] **T1: Server scaffold and dev database** (M)
+- [x] **T1: Server scaffold and dev database** (M)
   - Description: pnpm workspace, Fastify 5 server skeleton with health route, `pg` pool and query helper, `node-pg-migrate` wiring, Jest, dev PostgreSQL in docker, `.env.example`, `.gitignore`, MIT `LICENSE`.
   - Acceptance:
     - [ ] `pnpm dev:db` starts PostgreSQL 16, `pnpm dev:server` serves `GET /api/health` returning 200 and DB connectivity status
