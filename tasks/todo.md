@@ -173,10 +173,10 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Files: `client/src/pages/admin/Crypto.tsx`, `client/src/components/TokenScanDialog.tsx`, `client/src/components/AddTokenForm.tsx`, `client/src/lib/api.ts`
 
 ### Checkpoint C: First real snapshot
-- [ ] All tests pass and the build is clean
-- [ ] With the owner's real addresses (kept out of the repo), running the snapshot gives plausible totals
-- [ ] Add address, pick tokens, run snapshot works end to end in the UI
-- [ ] Review with owner before the dashboard
+- [x] All tests pass and the build is clean
+- [x] With the owner's real addresses (kept out of the repo), running the snapshot gives plausible totals
+- [x] Add address, pick tokens, run snapshot works end to end in the UI
+- [x] Review with owner before the dashboard
 
 ## Phase 4: Dashboard
 
@@ -202,8 +202,8 @@ Size key: S = 1-2 files, M = 3-5 files.
   - Files: `client/src/pages/Dashboard.tsx`, `client/src/components/NetWorthChart.tsx`, `client/src/components/Breakdown.tsx`, `client/package.json` (Recharts)
 
 ### Checkpoint D: Usable app
-- [ ] Dashboard shows real data from a local run
-- [ ] Owner confirms the numbers and layout before shipping work
+- [x] Dashboard shows real data from a local run
+- [x] Owner confirms the numbers and layout before shipping work
 
 ## Phase 5: Ship
 

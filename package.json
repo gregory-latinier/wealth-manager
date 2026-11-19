@@ -14,6 +14,7 @@
     "test": "pnpm --filter server test",
     "lint": "pnpm --filter server lint",
     "hash-password": "pnpm --filter server hash-password",
+    "snapshot:run": "pnpm --filter server snapshot:run",
     "db:migrate": "pnpm --filter server migrate:up",
     "dev:client": "pnpm --filter client dev"
   },
