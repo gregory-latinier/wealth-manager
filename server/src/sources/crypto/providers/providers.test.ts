@@ -238,8 +238,10 @@ describe('evm-rpc', () => {
     expect(rpcUrlsFromEnv({ BASE_RPC_URL: 'https://a.test, https://b.test' } as NodeJS.ProcessEnv)).toEqual({
       eth: ['https://ethereum-rpc.publicnode.com'],
       base: ['https://a.test', 'https://b.test'],
+      bsc: ['https://bsc-dataseed1.binance.org', 'https://bsc-rpc.publicnode.com'],
     })
     expect(rpcUrlsFromEnv({ ETH_RPC_URL: '  ' } as NodeJS.ProcessEnv).eth).toEqual(['https://ethereum-rpc.publicnode.com'])
+    expect(rpcUrlsFromEnv({ BSC_RPC_URL: 'https://bsc.test' } as NodeJS.ProcessEnv).bsc).toEqual(['https://bsc.test'])
   })
 })
 
@@ -248,6 +250,13 @@ describe('coingecko', () => {
     const { btc, eth } = parseNativePrices(fixture('coingecko-simple-price.json'))
     expect(btc.toString()).toBe('63953')
     expect(eth.toString()).toBe('1812.27')
+  })
+
+  it('returns the BNB price when present and leaves it out when absent', () => {
+    expect(parseNativePrices({ bitcoin: { usd: 1 }, ethereum: { usd: 2 }, binancecoin: { usd: 600.5 } }).bnb?.toString()).toBe('600.5')
+    expect(parseNativePrices({ bitcoin: { usd: 1 }, ethereum: { usd: 2 } }).bnb).toBeUndefined()
+    // A missing BNB price must not break Bitcoin and Ethereum valuation.
+    expect(parseNativePrices({ bitcoin: { usd: 1 }, ethereum: { usd: 2 }, binancecoin: { usd: 0 } }).bnb).toBeUndefined()
   })
 
   it('requires both native prices', () => {
@@ -279,18 +288,27 @@ describe('coingecko', () => {
     expect(f.calls).toHaveLength(1)
     expect(f.calls[0].url).toBe(`https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${USDC}&vs_currencies=usd`)
 
+    const contracts = Array.from({ length: 250 }, (_, i) => '0x' + i.toString(16).padStart(40, '0'))
     const many = fakeFetch(json({}))
-    await createCoinGecko({ fetch: many.fetch }).getTokenPrices(
-      'eth',
-      Array.from({ length: 250 }, (_, i) => '0x' + i.toString(16).padStart(40, '0'))
-    )
+    await createCoinGecko({ fetch: many.fetch, apiKey: 'secret' }).getTokenPrices('eth', contracts)
     expect(many.calls).toHaveLength(3)
     expect(many.calls[0].url).toContain('/simple/token_price/ethereum')
+
+    // The keyless free tier refuses more than one contract per request (HTTP 400, error 10012).
+    const keyless = fakeFetch(json({}))
+    await createCoinGecko({ fetch: keyless.fetch, apiKey: '' }).getTokenPrices('eth', contracts.slice(0, 4))
+    expect(keyless.calls).toHaveLength(4)
+    expect(keyless.calls.every((c) => c.url.split('contract_addresses=')[1].split('&')[0].split(',').length === 1)).toBe(true)
+
+    const bsc = fakeFetch(json({}))
+    await createCoinGecko({ fetch: bsc.fetch }).getTokenPrices('bsc', [USDC])
+    expect(bsc.calls[0].url).toContain('/simple/token_price/binance-smart-chain')
   })
 
   it('sends the optional API key and surfaces provider errors', async () => {
     const f = fakeFetch(json(fixture('coingecko-simple-price.json')))
     await createCoinGecko({ fetch: f.fetch, apiKey: 'secret' }).getNativePrices()
+    expect(f.calls[0].url).toContain('ids=bitcoin,ethereum,binancecoin')
     expect((f.calls[0].init.headers as Record<string, string>)['x-cg-demo-api-key']).toBe('secret')
 
     await expectProviderError(createCoinGecko({ fetch: fakeFetch(json({}, 429)).fetch, apiKey: '' }).getNativePrices(), 'http')

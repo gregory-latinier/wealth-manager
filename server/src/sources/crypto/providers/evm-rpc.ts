@@ -18,6 +18,7 @@ const MAX_SYMBOL_LENGTH = 32
 export const DEFAULT_RPC_URLS: Record<EvmChain, string[]> = {
   eth: ['https://ethereum-rpc.publicnode.com'],
   base: ['https://mainnet.base.org', 'https://base-rpc.publicnode.com'],
+  bsc: ['https://bsc-dataseed1.binance.org', 'https://bsc-rpc.publicnode.com'],
 }
 
 /** RPC URLs from the environment: a comma-separated list per chain replaces the defaults. */
@@ -29,6 +30,7 @@ export function rpcUrlsFromEnv(env: NodeJS.ProcessEnv = process.env): Record<Evm
   return {
     eth: list(env.ETH_RPC_URL, DEFAULT_RPC_URLS.eth),
     base: list(env.BASE_RPC_URL, DEFAULT_RPC_URLS.base),
+    bsc: list(env.BSC_RPC_URL, DEFAULT_RPC_URLS.bsc),
   }
 }
 

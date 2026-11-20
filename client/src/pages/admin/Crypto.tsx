@@ -264,7 +264,7 @@ export default function Crypto() {
             No address yet
           </Typography>
           <Typography color="text.secondary" sx={{ maxWidth: 420, mx: 'auto', mb: 3 }}>
-            Add a Bitcoin, Ethereum or Base address to start tracking it. Only the public address is needed, never a key or seed phrase.
+            Add a Bitcoin, Ethereum, Base or BNB Chain address to start tracking it. Only the public address is needed, never a key or seed phrase.
           </Typography>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAdding(true)}>
             Add address

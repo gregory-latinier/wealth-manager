@@ -3,6 +3,7 @@ import { dec, type Decimal } from '../../lib/money'
 import type { CollectResult, HoldingFailure, HoldingLine, SourceType } from '../types'
 import { createBtcProvider } from './providers/btc'
 import { createCoinGecko } from './providers/coingecko'
+import { createPriceProvider } from './providers/defillama'
 import { createEvmRpc } from './providers/evm-rpc'
 import type { BtcProvider, EvmChain, EvmProvider, PriceProvider } from './providers/types'
 import { isEvmChain, type Chain } from './validate'
@@ -77,7 +78,7 @@ export function createCryptoSource(providers: CryptoProviders): SourceType {
 
       // Native prices cover every address. If that call fails nothing can be valued, so every entry is
       // a failure (the engine carries each one forward) rather than a line priced at 0.
-      let native: { btc: Decimal; eth: Decimal }
+      let native: { btc: Decimal; eth: Decimal; bnb?: Decimal }
       try {
         native = await providers.prices.getNativePrices()
       } catch (err) {
@@ -88,7 +89,7 @@ export function createCryptoSource(providers: CryptoProviders): SourceType {
       // Token prices, one call per chain. A failed lookup fails that chain's tokens only. A contract the
       // provider does not know is valued at 0 (the owner was warned when adding it, see SC5).
       const tokenPrices = new Map<EvmChain, Map<string, Decimal> | string>()
-      for (const chain of ['eth', 'base'] as const) {
+      for (const chain of ['eth', 'base', 'bsc'] as const) {
         const contracts = holders.filter((h) => h.chain === chain).flatMap((h) => h.tokens.map((t) => t.contractAddress!))
         if (contracts.length === 0) continue
         try {
@@ -117,7 +118,10 @@ export function createCryptoSource(providers: CryptoProviders): SourceType {
               holder.tokens.map((t) => ({ contract: t.contractAddress!, decimals: t.decimals }))
             )
             if (holder.native) {
-              lines.push({ sourceRef: nativeRef(chain, holder.address), symbol: holder.native.symbol, amount: balances.native, priceUsd: native.eth })
+              // ETH on Ethereum and Base, BNB on BNB Chain. A missing BNB price fails this address only.
+              const priceUsd = chain === 'bsc' ? native.bnb : native.eth
+              if (!priceUsd) throw new Error('price lookup failed: BNB price is missing')
+              lines.push({ sourceRef: nativeRef(chain, holder.address), symbol: holder.native.symbol, amount: balances.native, priceUsd })
             }
 
             const prices = tokenPrices.get(chain)
@@ -149,5 +153,5 @@ export function createCryptoSource(providers: CryptoProviders): SourceType {
 
 /** The crypto source wired to the real providers. */
 export function createDefaultCryptoSource(): SourceType {
-  return createCryptoSource({ btc: createBtcProvider(), evm: createEvmRpc(), prices: createCoinGecko() })
+  return createCryptoSource({ btc: createBtcProvider(), evm: createEvmRpc(), prices: createPriceProvider(createCoinGecko()) })
 }

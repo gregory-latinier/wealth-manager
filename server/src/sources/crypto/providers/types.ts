@@ -14,7 +14,7 @@ export class ProviderError extends Error {
   }
 }
 
-export type EvmChain = 'eth' | 'base'
+export type EvmChain = 'eth' | 'base' | 'bsc'
 
 export interface BtcProvider {
   /** Confirmed balance in BTC. Unconfirmed transactions are ignored. */
@@ -30,7 +30,7 @@ export interface TokenRef {
 export type TokenBalance = { ok: true; balance: Decimal } | { ok: false; error: ProviderError }
 
 export interface EvmBalances {
-  /** Native coin (ETH) balance of the address. */
+  /** Native coin (ETH, or BNB on BNB Chain) balance of the address. */
   native: Decimal
   /** One entry per requested token, keyed by lowercase contract. A bad token never hides the others. */
   tokens: Record<string, TokenBalance>
@@ -47,7 +47,8 @@ export interface EvmProvider {
 }
 
 export interface PriceProvider {
-  getNativePrices(): Promise<{ btc: Decimal; eth: Decimal }>
+  /** `bnb` is optional on purpose: if the provider omits it, only BNB Chain addresses fail, not the whole snapshot. */
+  getNativePrices(): Promise<{ btc: Decimal; eth: Decimal; bnb?: Decimal }>
   /** USD prices by lowercase contract. A contract the provider does not know is absent from the map (unpriced). */
   getTokenPrices(chain: EvmChain, contracts: string[]): Promise<Map<string, Decimal>>
 }

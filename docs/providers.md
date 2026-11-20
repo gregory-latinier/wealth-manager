@@ -107,3 +107,29 @@ The options as they were presented:
 - T10 splits: `btc.ts`, `evm-rpc.ts` (balances, metadata), `coingecko.ts`, and `blockscout.ts` (scan only).
 - T12 (scan): filters `ERC-20` only, needs a long timeout and a "scanning..." state, and on Base uses the option chosen above.
 - T3 verification step "owner reads this file" is the Checkpoint A gate.
+
+
+## Update: Base and BNB Chain token scan (Nov 2026)
+
+The Blockscout key route for Base never worked: `api.blockscout.com` answered **HTTP 402** even with a key. A fake key got 401, the real one got 402, and neither the `Authorization: Bearer` header nor `apikey=` changed that. The keyed code was removed.
+
+Keyless alternatives were checked and none lists an address's tokens on Base or BNB Chain:
+- Routescan answers for Ethereum (1) and Avalanche (43114) but not Base (8453) or BNB Chain (56).
+- Ankr multichain, Etherscan v2 and `base.blockscout.com` need a key or a plan, or sit behind a Cloudflare challenge.
+
+So the scan on these two chains now asks the chain itself about a built-in list of popular tokens (`providers/known-tokens.ts`), in one batched RPC call, and prices only what is held through DefiLlama (`coins.llama.fi`, keyless, many contracts per request). It cannot discover a token that is not on the list: add those with the contract box. Decimals differ per chain (USDT and USDC are 18 on BNB Chain, 6 on Base), and were read from the contracts.
+
+Token prices: CoinGecko's keyless tier now accepts **one contract per request** (HTTP 400, error 10012) and answers 429 after a few calls, so it cannot price a wallet. DefiLlama is asked first and CoinGecko is the fallback if DefiLlama fails (a token DefiLlama merely does not know stays unpriced, no fallback). Native prices (BTC, ETH, BNB) still come from CoinGecko. If both fail, the tokens are still listed and the dialog says prices are unavailable instead of showing them as worthless.
+
+BNB Chain RPC: `bsc-dataseed1.binance.org` answered batches from the dev machine. `bsc-rpc.publicnode.com` and `bsc-dataseed.bnbchain.org` timed out there, and `rpc.ankr.com/bsc` needs a key. Set `BSC_RPC_URL` if your host reaches a different one.
+
+
+## Update: exchange balances (Nov 2026)
+
+Exchange accounts are a new source type (`exchange`) behind one interface, `ExchangeAdapter { verify, getBalances }`, in `server/src/sources/exchange/`. Adding an exchange means writing one adapter file and registering it in `createDefaultAdapters`. The table, routes, page and snapshot code do not change. `ExchangeAccount` already allows `okx`.
+
+Kraken (`kraken.ts`): `POST /0/private/Balance`, signed with `API-Sign = base64(HMAC-SHA512(path + SHA256(nonce + body), base64decode(secret)))`. The signing code is tested against the example in Kraken's documentation. Kraken answers HTTP 200 with an `error` array, so that array is what decides success. The nonce must strictly increase, so it is a microsecond clock that never goes backwards.
+
+Asset codes are normalised: legacy names (`XXBT` is BTC, `XETH`, `XXDG` is DOGE, `ZUSD`, `ZEUR`), the suffixes `.S .M .F .B .P` (staking and earn variants) and `ETH2`. Variants of one asset are merged into one line. USD counts at 1. Everything else is priced from public `AssetPairs` (online pairs quoted in USD) and `Ticker` (field `c[0]`). An asset with no online USD pair is reported unpriced and carried forward.
+
+Keys: stored with AES-256-GCM, key derived with HKDF-SHA256 from `EXCHANGE_KEY_SECRET`, the account id bound as authenticated data so a ciphertext cannot be moved to another row. Format `v1.<iv>.<tag>.<ciphertext>`.

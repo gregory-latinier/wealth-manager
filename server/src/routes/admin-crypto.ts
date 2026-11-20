@@ -10,7 +10,9 @@ import {
   updateAddress,
 } from '../sources/crypto/addresses'
 import { createBlockscout, type ScanProvider } from '../sources/crypto/providers/blockscout'
+import { createScanProvider } from '../sources/crypto/providers/known-tokens'
 import { createCoinGecko } from '../sources/crypto/providers/coingecko'
+import { createPriceProvider } from '../sources/crypto/providers/defillama'
 import { createEvmRpc } from '../sources/crypto/providers/evm-rpc'
 import { ProviderError, type EvmProvider, type PriceProvider } from '../sources/crypto/providers/types'
 import { addToken, deleteToken, listTokens, setTokenActive } from '../sources/crypto/tokens'
@@ -26,7 +28,7 @@ import {
 import { CHAINS, isChain, isEvmChain, normalizeAddress, normalizeContract } from '../sources/crypto/validate'
 
 export interface AdminCryptoOptions {
-  /** Overridable for tests. Defaults to Blockscout. */
+  /** Overridable for tests. Defaults to Blockscout on Ethereum and a known-token check over RPC on the other chains. */
   scan?: ScanProvider
   /** Overridable for tests. Defaults to public JSON-RPC. Reads symbol and decimals for a token. */
   evm?: EvmProvider
@@ -48,9 +50,9 @@ function cleanLabel(label: string | null | undefined): string | null | undefined
 }
 
 export const adminCryptoRoutes: FastifyPluginAsync<AdminCryptoOptions> = async (fastify, options) => {
-  const scanProvider = options.scan ?? createBlockscout()
   const evm = options.evm ?? createEvmRpc()
-  const prices = options.prices ?? createCoinGecko()
+  const prices = options.prices ?? createPriceProvider(createCoinGecko())
+  const scanProvider = options.scan ?? createScanProvider({ evm, prices, ethereum: createBlockscout() })
 
   // Every admin route needs a session.
   fastify.addHook('preHandler', requireAuth)
@@ -171,7 +173,7 @@ export const adminCryptoRoutes: FastifyPluginAsync<AdminCryptoOptions> = async (
       const body = request.body as { contractAddress: string }
       const address = await getAddress(id)
       if (!address) return reply.status(404).send({ error: 'Address not found' })
-      if (!isEvmChain(address.chain)) return reply.status(400).send({ error: 'Tokens can only be tracked on Ethereum and Base addresses' })
+      if (!isEvmChain(address.chain)) return reply.status(400).send({ error: 'Tokens can only be tracked on Ethereum, Base and BNB Chain addresses' })
 
       const contract = normalizeContract(body.contractAddress)
       if (!contract) return reply.status(400).send({ error: 'Not a valid contract address' })
@@ -259,7 +261,7 @@ export const adminCryptoRoutes: FastifyPluginAsync<AdminCryptoOptions> = async (
           required: ['chain', 'contractAddress'],
           additionalProperties: false,
           properties: {
-            chain: { type: 'string', enum: ['eth', 'base'] },
+            chain: { type: 'string', enum: ['eth', 'base', 'bsc'] },
             contractAddress: { type: 'string', minLength: 1, maxLength: 100 },
           },
         },

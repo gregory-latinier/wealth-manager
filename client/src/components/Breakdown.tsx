@@ -1,14 +1,18 @@
-import { Box, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip, Typography, useTheme } from '@mui/material'
+import { Box, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip, Typography } from '@mui/material'
 import WarningIcon from '@mui/icons-material/WarningAmberOutlined'
 import { formatMoney, shortAddress } from '../lib/crypto'
+import { VIOLET } from '../theme'
 import type { BreakdownLine, Currency } from '../lib/dashboard'
 
-const BAR = { light: '#2a78d6', dark: '#3987e5' }
+
+const EXCHANGE_NAMES: Record<string, string> = { kraken: 'Kraken', okx: 'OKX' }
 
 /** `eth:0xabc…:native` becomes "Ethereum 0xabc…1234". Unknown source types fall back to the raw ref. */
 function describeRef(line: BreakdownLine): string {
   const [chain, address] = line.sourceRef.split(':')
-  const name = { btc: 'Bitcoin', eth: 'Ethereum', base: 'Base' }[chain]
+  // Exchange refs are `kraken:<account id>:BTC`. The account id means nothing to a reader, so only the exchange is shown.
+  if (line.sourceType === 'exchange') return EXCHANGE_NAMES[chain] ?? line.sourceRef
+  const name = { btc: 'Bitcoin', eth: 'Ethereum', base: 'Base', bsc: 'BNB Chain' }[chain]
   return name && address ? `${name} · ${shortAddress(address)}` : line.sourceRef
 }
 
@@ -17,7 +21,6 @@ const trimAmount = (amount: string) => (amount.includes('.') ? amount.replace(/\
 // Every value here is real text in a table, so the breakdown is also the table view of the data.
 // Symbols and refs come from stored provider data and are rendered as text, never as HTML.
 export default function Breakdown({ lines, currency }: { lines: BreakdownLine[]; currency: Currency }) {
-  const theme = useTheme()
   const value = (l: BreakdownLine) => Number(currency === 'USD' ? l.valueUsd : l.valueEur)
   const total = lines.reduce((sum, l) => sum + value(l), 0)
 
@@ -79,7 +82,7 @@ export default function Breakdown({ lines, currency }: { lines: BreakdownLine[];
                 <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Box sx={{ flexGrow: 1, height: 8, borderRadius: 4, bgcolor: 'action.hover' }}>
-                      <Box sx={{ width: `${share}%`, height: '100%', bgcolor: BAR[theme.palette.mode], borderRadius: 4 }} />
+                      <Box sx={{ width: `${share}%`, height: '100%', backgroundImage: `linear-gradient(90deg, ${VIOLET.deep}, ${VIOLET.accent})`, borderRadius: 4 }} />
                     </Box>
                     <Typography variant="caption" color="text.secondary" sx={{ minWidth: 44, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                       {share.toFixed(1)}%

@@ -10,12 +10,14 @@ import { healthRoutes } from './routes/health'
 import { authRoutes } from './routes/auth'
 import { dashboardRoutes } from './routes/dashboard'
 import { adminCryptoRoutes, type AdminCryptoOptions } from './routes/admin-crypto'
+import { adminExchangeRoutes, type AdminExchangeOptions } from './routes/admin-exchange'
 import { snapshotRoutes, type SnapshotRouteOptions } from './routes/snapshots'
 import { registerDefaultSources } from './sources/register-defaults'
 
 export interface BuildAppOptions {
   snapshots?: SnapshotRouteOptions
   adminCrypto?: AdminCryptoOptions
+  adminExchange?: AdminExchangeOptions
   /** Folder of the built client. Defaults to <app>/client/dist in production and to nothing otherwise. */
   clientDist?: string
 }
@@ -41,6 +43,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(healthRoutes, { prefix: '/api' })
   await app.register(authRoutes, { prefix: '/api/auth' })
   await app.register(adminCryptoRoutes, { prefix: '/api/admin/crypto', ...options.adminCrypto })
+  await app.register(adminExchangeRoutes, { prefix: '/api/admin/exchanges', ...options.adminExchange })
   await app.register(dashboardRoutes, { prefix: '/api/dashboard' })
   await app.register(snapshotRoutes, { prefix: '/api/snapshots', ...options.snapshots })
 

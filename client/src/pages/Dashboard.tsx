@@ -1,4 +1,5 @@
 import { Alert, Box, Button, Paper, Skeleton, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import Grid from '@mui/material/Grid'
 import ArrowDownIcon from '@mui/icons-material/ArrowDownward'
 import ArrowUpIcon from '@mui/icons-material/ArrowUpward'
 import RemoveIcon from '@mui/icons-material/Remove'
@@ -6,6 +7,7 @@ import InsightsIcon from '@mui/icons-material/InsightsOutlined'
 import { useEffect, useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import AdminNav from '../components/AdminNav'
+import Allocation from '../components/Allocation'
 import Breakdown from '../components/Breakdown'
 import NetWorthChart from '../components/NetWorthChart'
 import { ApiError } from '../lib/api'
@@ -24,36 +26,40 @@ function ChangePill({ label, change, currency }: { label: string; change: Change
   const tone = sign > 0 ? 'success' : sign < 0 ? 'error' : 'text'
 
   return (
-    <Box>
+    <Paper variant="outlined" sx={{ p: 2.5, height: '100%' }}>
       <Typography variant="overline" color="text.secondary" component="div">
         {label}
       </Typography>
       {figure && change ? (
         <>
+          <Typography
+            component="p"
+            sx={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: tone === 'text' ? 'text.primary' : `${tone}.main` }}
+          >
+            {sign > 0 ? '+' : ''}
+            {formatMoney(figure.abs, currency)}
+          </Typography>
           <Box
             sx={(t) => ({
               display: 'inline-flex',
               alignItems: 'center',
               gap: 0.5,
+              mt: 0.75,
               px: 1.25,
               py: 0.5,
               borderRadius: 999,
               fontVariantNumeric: 'tabular-nums',
               fontWeight: 650,
-              fontSize: 15,
+              fontSize: 14,
               ...(tone === 'text'
                 ? { bgcolor: 'action.hover', color: 'text.secondary' }
-                : { bgcolor: `color-mix(in srgb, ${(t.vars ?? t).palette[tone].main} 14%, transparent)`, color: `${tone}.main` }),
+                : { bgcolor: `color-mix(in srgb, ${(t.vars ?? t).palette[tone].main} 16%, transparent)`, color: `${tone}.main` }),
             })}
           >
             <Icon sx={{ fontSize: 16 }} aria-hidden />
-            <span>
-              {sign > 0 ? '+' : ''}
-              {formatMoney(figure.abs, currency)}
-              {figure.pct !== null && ` (${sign > 0 ? '+' : ''}${figure.pct}%)`}
-            </span>
+            <span>{figure.pct !== null ? `${sign > 0 ? '+' : ''}${figure.pct}%` : 'n/a'}</span>
           </Box>
-          <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
+          <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 1 }}>
             since {change.since}
           </Typography>
         </>
@@ -62,7 +68,7 @@ function ChangePill({ label, change, currency }: { label: string; change: Change
           Not enough history yet
         </Typography>
       )}
-    </Box>
+    </Paper>
   )
 }
 
@@ -156,7 +162,7 @@ export default function Dashboard() {
             <Stack direction="row" sx={{ alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
               <Box>
                 <Typography variant="overline" color="text.secondary" component="h1">
-                  Net worth
+                  Total portfolio value
                 </Typography>
                 <Typography
                   component="p"
@@ -174,11 +180,6 @@ export default function Dashboard() {
               </ToggleButtonGroup>
             </Stack>
 
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 2, sm: 5 }} sx={{ mt: 3 }}>
-              <ChangePill label="1 day" change={data.change.day} currency={currency} />
-              <ChangePill label="7 days" change={data.change.week} currency={currency} />
-            </Stack>
-
             <Box sx={{ mt: 4 }}>
               <NetWorthChart series={data.series} currency={currency} selectedDate={shownDate} onSelectDate={(d) => setDate(d === latest.date ? null : d)} />
               {data.series.length >= 2 && (
@@ -188,6 +189,23 @@ export default function Dashboard() {
               )}
             </Box>
           </Paper>
+
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 8 }}>
+              <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3 }, height: '100%' }}>
+                <Typography variant="subtitle1" component="h2" sx={{ mb: 2 }}>
+                  Allocation
+                </Typography>
+                {data.breakdown && <Allocation lines={data.breakdown.lines} currency={currency} />}
+              </Paper>
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Stack spacing={3} sx={{ height: '100%' }}>
+                <ChangePill label="1 day" change={data.change.day} currency={currency} />
+                <ChangePill label="7 days" change={data.change.week} currency={currency} />
+              </Stack>
+            </Grid>
+          </Grid>
 
           <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
             <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1, px: { xs: 0.5, sm: 0 } }}>

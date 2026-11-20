@@ -1,4 +1,5 @@
 import { createDefaultCryptoSource } from './crypto/index'
+import { createDefaultExchangeSource } from './exchange/index'
 import { registerSource } from './registry'
 
 let done = false
@@ -8,4 +9,5 @@ export function registerDefaultSources(): void {
   if (done) return
   done = true
   registerSource(createDefaultCryptoSource())
+  registerSource(createDefaultExchangeSource())
 }

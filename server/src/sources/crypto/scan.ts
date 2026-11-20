@@ -35,6 +35,8 @@ export type ScanResult =
       hidden: HiddenEntry[]
       /** Priced but under the threshold. Counted, not listed. */
       belowThresholdCount: number
+      /** The price source failed, so "unpriced" below means "could not look up", not "no price exists". */
+      pricesUnavailable: boolean
     }
 
 function toEntry(token: ScanToken, tracked: boolean): ScanEntry {
@@ -57,7 +59,7 @@ const byValueDesc = (a: ScanEntry, b: ScanEntry) =>
 /** Scans one address. BTC has no tokens, so it gets an empty result rather than an error. */
 export async function scanAddress(address: CryptoAddress, provider: ScanProvider): Promise<ScanResult> {
   const thresholdUsd = await getThresholdUsd()
-  const empty: ScanResult = { status: 'ok', thresholdUsd, selectable: [], unpriced: [], hidden: [], belowThresholdCount: 0 }
+  const empty: ScanResult = { status: 'ok', thresholdUsd, selectable: [], unpriced: [], hidden: [], belowThresholdCount: 0, pricesUnavailable: false }
   if (!isEvmChain(address.chain)) return empty
 
   const support = provider.support(address.chain)
@@ -87,6 +89,7 @@ export async function scanAddress(address: CryptoAddress, provider: ScanProvider
     else result.belowThresholdCount++
   }
 
+  result.pricesUnavailable = provider.pricesUnavailable?.(address.chain, address.address) ?? false
   result.selectable.sort(byValueDesc)
   result.hidden.sort(byValueDesc)
   result.unpriced.sort((a, b) => a.symbol.localeCompare(b.symbol))

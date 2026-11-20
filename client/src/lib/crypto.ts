@@ -1,8 +1,9 @@
 import { api } from './api'
 
-export type Chain = 'btc' | 'eth' | 'base'
+export type Chain = 'btc' | 'eth' | 'base' | 'bsc'
+export type EvmChain = Exclude<Chain, 'btc'>
 
-export const CHAIN_LABEL: Record<Chain, string> = { btc: 'Bitcoin', eth: 'Ethereum', base: 'Base' }
+export const CHAIN_LABEL: Record<Chain, string> = { btc: 'Bitcoin', eth: 'Ethereum', base: 'Base', bsc: 'BNB Chain' }
 
 export interface AddressLastValue {
   usd: string
@@ -59,7 +60,7 @@ export interface HiddenEntry extends ScanEntry {
 
 export type ScanResult =
   | { status: 'disabled'; reason: string }
-  | { status: 'ok'; thresholdUsd: string; selectable: ScanEntry[]; unpriced: ScanEntry[]; hidden: HiddenEntry[]; belowThresholdCount: number }
+  | { status: 'ok'; thresholdUsd: string; selectable: ScanEntry[]; unpriced: ScanEntry[]; hidden: HiddenEntry[]; belowThresholdCount: number; pricesUnavailable: boolean }
 
 export interface TrackedToken {
   id: string
@@ -79,7 +80,7 @@ export interface AddedToken extends TrackedToken {
 
 export interface IgnoredToken {
   id: string
-  chain: 'eth' | 'base'
+  chain: EvmChain
   contractAddress: string
 }
 
@@ -95,6 +96,6 @@ export const tokenApi = {
   getThreshold: () => api<{ scanThresholdUsd: string }>(`${BASE}/settings`).then((r) => r.scanThresholdUsd),
   setThreshold: (scanThresholdUsd: string) => api<{ scanThresholdUsd: string }>(`${BASE}/settings`, { method: 'PUT', body: { scanThresholdUsd } }),
   listIgnored: () => api<{ ignored: IgnoredToken[] }>(`${BASE}/ignored-tokens`).then((r) => r.ignored),
-  ignore: (chain: 'eth' | 'base', contractAddress: string) => api<IgnoredToken>(`${BASE}/ignored-tokens`, { method: 'POST', body: { chain, contractAddress } }),
+  ignore: (chain: EvmChain, contractAddress: string) => api<IgnoredToken>(`${BASE}/ignored-tokens`, { method: 'POST', body: { chain, contractAddress } }),
   unignore: (id: string) => api(`${BASE}/ignored-tokens/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 }
