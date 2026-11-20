@@ -1,10 +1,11 @@
 import { Box, Typography, useTheme } from '@mui/material'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { formatMoney } from '../lib/crypto'
+import { VIOLET } from '../theme'
 import { compactMoney, type Currency, type DashboardData } from '../lib/dashboard'
 
-// Series 1 of the reference palette, stepped for each surface. A single series, so no legend box and no dual axis.
-const SERIES = { light: '#2a78d6', dark: '#3987e5' }
+// A single series, so no legend box and no dual axis. The app is dark only, so one violet.
+const SERIES = VIOLET.accent
 
 interface Point {
   date: string
@@ -23,7 +24,7 @@ function ChartTooltip({ active, payload, currency }: TooltipProps) {
   if (!active || !payload?.length) return null
   const p = payload[0].payload
   return (
-    <Box sx={{ bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, px: 1.5, py: 1, boxShadow: 0 }}>
+    <Box sx={{ bgcolor: '#1a1229', border: 1, borderColor: 'divider', borderRadius: 2, px: 1.5, py: 1, boxShadow: 0 }}>
       <Typography variant="caption" color="text.secondary" component="div">
         {p.date}
       </Typography>
@@ -51,7 +52,7 @@ export default function NetWorthChart({
   onSelectDate: (date: string) => void
 }) {
   const theme = useTheme()
-  const color = SERIES[theme.palette.mode]
+  const color = SERIES
   const surface = theme.palette.background.paper
 
   if (series.length < 2) {
@@ -70,7 +71,7 @@ export default function NetWorthChart({
   const last = data[data.length - 1]
 
   return (
-    <Box role="img" aria-label={`Net worth in ${currency} from ${data[0].date} to ${last.date}. The same values are in the table below.`} sx={{ height: 280 }}>
+    <Box role="img" aria-label={`Net worth in ${currency} from ${data[0].date} to ${last.date}. The same values are in the table below.`} sx={{ height: 300 }}>
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
@@ -82,11 +83,11 @@ export default function NetWorthChart({
         >
           <defs>
             <linearGradient id="wm-area" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor={color} stopOpacity={0.28} />
+              <stop offset="0" stopColor={color} stopOpacity={0.45} />
               <stop offset="1" stopColor={color} stopOpacity={0.02} />
             </linearGradient>
           </defs>
-          <CartesianGrid vertical={false} stroke={theme.palette.divider} strokeWidth={1} />
+          <CartesianGrid vertical={false} stroke={theme.palette.divider} strokeDasharray="3 5" strokeWidth={1} />
           <XAxis dataKey="date" tickLine={false} axisLine={{ stroke: theme.palette.divider }} tick={{ fill: theme.palette.text.secondary, fontSize: 12 }} minTickGap={32} />
           <YAxis
             width={64}

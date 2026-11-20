@@ -15,6 +15,7 @@ const NATIVE: Record<Chain, { symbol: string; decimals: number }> = {
   btc: { symbol: 'BTC', decimals: 8 },
   eth: { symbol: 'ETH', decimals: 18 },
   base: { symbol: 'ETH', decimals: 18 },
+  bsc: { symbol: 'BNB', decimals: 18 },
 }
 
 export const MAX_LABEL_LENGTH = 100

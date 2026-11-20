@@ -10,3 +10,6 @@ process.env.SNAPSHOT_TOKEN = 'test-snapshot-token-0123456789abcdef0123456789'
 // Empty (not deleted) so dotenv does not refill it from a developer's .env: the tests exercise the hash path.
 process.env.APP_PASSWORD = ''
 process.env.APP_PASSWORD_HASH = require('bcryptjs').hashSync('correct-horse-battery', 4)
+
+// Exchange credentials are encrypted with this. Tests never use a real secret.
+process.env.EXCHANGE_KEY_SECRET = 'test-exchange-key-secret-0123456789abcdef'

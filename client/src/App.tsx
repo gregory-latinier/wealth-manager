@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, RequireAuth } from './lib/auth'
 import Crypto from './pages/admin/Crypto'
+import Exchanges from './pages/admin/Exchanges'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
 
@@ -22,6 +23,14 @@ export default function App() {
           element={
             <RequireAuth>
               <Crypto />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/exchanges"
+          element={
+            <RequireAuth>
+              <Exchanges />
             </RequireAuth>
           }
         />

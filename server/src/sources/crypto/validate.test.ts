@@ -6,9 +6,10 @@ const P2SH = '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy'
 const BECH32 = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq'
 
 describe('normalizeAddress', () => {
-  it('lowercases EVM addresses on eth and base', () => {
+  it('lowercases EVM addresses on eth, base and bsc', () => {
     expect(normalizeAddress('eth', EVM)).toBe(EVM.toLowerCase())
     expect(normalizeAddress('base', ` ${EVM} `)).toBe(EVM.toLowerCase())
+    expect(normalizeAddress('bsc', EVM)).toBe(EVM.toLowerCase())
   })
 
   it.each([
@@ -44,6 +45,7 @@ describe('normalizeAddress', () => {
   it('does not accept a BTC address on an EVM chain or the reverse', () => {
     expect(normalizeAddress('eth', LEGACY)).toBeNull()
     expect(normalizeAddress('btc', EVM)).toBeNull()
+    expect(normalizeAddress('bsc', LEGACY)).toBeNull()
   })
 })
 

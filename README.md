@@ -8,7 +8,7 @@ Built to be self-hosted on cheap shared hosting ([o2switch](https://www.o2switch
 
 ## What it does (v1)
 
-- Tracks **crypto addresses**: BTC, ETH and Base. Native coins plus ERC-20 tokens.
+- Tracks **crypto addresses**: BTC, ETH, Base and BNB Chain. Native coins plus ERC-20/BEP-20 tokens.
 - Adding an address scans it for tokens worth more than a USD threshold (default about $10). You pick which to track, or add one by contract address.
 - A daily snapshot records every holding, its price and its value in USD and EUR.
 - The dashboard shows the total, the 1-day and 7-day change, the evolution chart, and the holdings of any day.
@@ -31,10 +31,13 @@ Data providers, all keyless by default (see [`docs/providers.md`](docs/providers
 | Need | Provider |
 |---|---|
 | BTC balance | mempool.space |
-| ETH and Base balances | public JSON-RPC (override with your own endpoint) |
-| Token prices | CoinGecko |
+| ETH, Base and BNB Chain balances | public JSON-RPC (override with your own endpoint) |
+| Token prices | DefiLlama (keyless, batched), CoinGecko as fallback |
+| Native prices (BTC, ETH, BNB) | CoinGecko |
 | Token scan on Ethereum | Blockscout |
-| Token scan on Base | Blockscout, **needs `BLOCKSCOUT_API_KEY`**. Without it you can still add Base tokens by contract. |
+| Token scan on Base and BNB Chain | A built-in list of popular tokens, read over RPC, priced by DefiLlama. Keyless. Other tokens: add by contract address. |
+| Exchange balances | Kraken private API with a read-only key (spot, including staked). OKX is the next adapter. |
+| Exchange prices | Kraken public `AssetPairs` and `Ticker` |
 | USD/EUR rate | Frankfurter |
 
 ## Local development
@@ -77,6 +80,16 @@ Generate the snapshot token with `openssl rand -hex 32`.
 
 The server refuses to start without a password (`APP_PASSWORD` or a valid hash) and a `SNAPSHOT_TOKEN` of at least 32 characters.
 
+### Track an exchange
+
+1. Set `EXCHANGE_KEY_SECRET` in `.env` and restart the server. Run `pnpm db:migrate` once (creates the `ExchangeAccount` table).
+2. On the exchange, create an API key that can only **read**. On Kraken: Security > API, tick only **Query funds**, leave trading, deposit and withdrawal off.
+3. Open **Exchanges** in the app and choose **Connect exchange**. The key is checked with the exchange before it is saved, then stored encrypted (AES-256-GCM). It is never shown again and never sent back to the browser.
+
+Every spot balance on the account is tracked, including staked and earn balances (counted as the base asset, so `ETH2.S` is valued as ETH). Fiat is counted as cash. An asset with no USD price on the exchange is carried forward from its last value and marked stale, never valued at 0. If the exchange cannot be reached the whole account is carried forward the same way.
+
+The database holds ciphertext only, but anyone with both the database and `EXCHANGE_KEY_SECRET` can read the keys. That is why a read-only key matters: it can see balances and nothing else.
+
 ### Record a snapshot by hand
 
 After adding an address under **Crypto**:
@@ -96,8 +109,9 @@ pnpm snapshot:run
 | `SNAPSHOT_TOKEN` | yes | Bearer token the cron uses, 32 characters or more. |
 | `ETH_RPC_URL` | no | Comma-separated JSON-RPC URLs for Ethereum. Replaces the public defaults. |
 | `BASE_RPC_URL` | no | Same, for Base. |
-| `BLOCKSCOUT_API_KEY` | no | Enables the token scan on Base. |
+| `BSC_RPC_URL` | no | Same, for BNB Chain. |
 | `COINGECKO_API_KEY` | no | Raises the CoinGecko rate limit. |
+| `EXCHANGE_KEY_SECRET` | for exchanges | 32 characters or more (`openssl rand -hex 32`). Encrypts the exchange API keys stored in the database. **Keep it**: if it changes or is lost, saved keys can no longer be read and must be entered again. |
 | `PORT` | no | Server port, default `3001`. Passenger sets its own. |
 
 `NODE_ENV` does not need to be set in production: `server/server.js` forces it. In production the session cookie is `Secure`, so the site **must** be served over HTTPS, otherwise login appears to work but the session is never kept.

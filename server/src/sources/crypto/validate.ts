@@ -1,5 +1,5 @@
-export type Chain = 'btc' | 'eth' | 'base'
-export const CHAINS: readonly Chain[] = ['btc', 'eth', 'base']
+export type Chain = 'btc' | 'eth' | 'base' | 'bsc'
+export const CHAINS: readonly Chain[] = ['btc', 'eth', 'base', 'bsc']
 
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/
 // Legacy: base58, starts with 1 or 3 (25 to 34 chars, no 0 O I l). Segwit/taproot: bech32, starts with bc1.
@@ -10,8 +10,8 @@ export function isChain(value: unknown): value is Chain {
   return typeof value === 'string' && (CHAINS as readonly string[]).includes(value)
 }
 
-export function isEvmChain(chain: Chain): chain is 'eth' | 'base' {
-  return chain === 'eth' || chain === 'base'
+export function isEvmChain(chain: Chain): chain is 'eth' | 'base' | 'bsc' {
+  return chain === 'eth' || chain === 'base' || chain === 'bsc'
 }
 
 /**

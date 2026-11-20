@@ -21,7 +21,7 @@ import {
 } from '@mui/material'
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '../lib/api'
-import { formatMoney, shortAddress, tokenApi, type CryptoAddress, type HiddenEntry, type ScanEntry, type ScanResult } from '../lib/crypto'
+import { CHAIN_LABEL, formatMoney, shortAddress, tokenApi, type CryptoAddress, type EvmChain, type HiddenEntry, type ScanEntry, type ScanResult } from '../lib/crypto'
 
 const errorText = (err: unknown) => (err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
 
@@ -113,7 +113,7 @@ export default function TokenScanDialog({
   }
 
   const applyThreshold = () => act(async () => void (await tokenApi.setThreshold(threshold.trim())))
-  const ignore = (e: ScanEntry) => act(() => tokenApi.ignore(address!.chain as 'eth' | 'base', e.contract))
+  const ignore = (e: ScanEntry) => act(() => tokenApi.ignore(address!.chain as EvmChain, e.contract))
   const unignore = (e: HiddenEntry) =>
     act(async () => {
       const row = (await tokenApi.listIgnored()).find((i) => i.chain === address!.chain && i.contractAddress === e.contract)
@@ -148,7 +148,7 @@ export default function TokenScanDialog({
       <DialogContent>
         {address && (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {address.label ?? shortAddress(address.address)} · {address.chain === 'base' ? 'Base' : 'Ethereum'}
+            {address.label ?? shortAddress(address.address)} · {CHAIN_LABEL[address.chain]}
           </Typography>
         )}
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -209,9 +209,11 @@ export default function TokenScanDialog({
 
             {ok.unpriced.length > 0 && (
               <Box>
-                <Typography variant="subtitle2">No known price</Typography>
+                <Typography variant="subtitle2">{ok.pricesUnavailable ? 'Prices unavailable' : 'No known price'}</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Tracked tokens without a price count as 0 until a price exists. Not selected by default.
+                  {ok.pricesUnavailable
+                    ? 'The price service did not answer (it limits free requests), so these tokens could not be valued. Close and scan again in a minute. They are not selected by default.'
+                    : 'Tracked tokens without a price count as 0 until a price exists. Not selected by default.'}
                 </Typography>
                 <List dense>
                   {ok.unpriced.map((t) => (

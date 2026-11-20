@@ -5,7 +5,6 @@ import { ProviderError, type EvmChain } from './types'
 const PROVIDER = 'blockscout'
 // Big wallets take about 25 s to answer (see docs/providers.md), so this is deliberately generous.
 export const SCAN_TIMEOUT_MS = 60_000
-const MAX_PAGES = 10
 const MAX_SYMBOL_LENGTH = 32
 const MAX_NAME_LENGTH = 64
 const CONTRACT = /^0x[0-9a-fA-F]{40}$/
@@ -29,6 +28,8 @@ export type ScanSupport = { enabled: true } | { enabled: false; reason: string }
 export interface ScanProvider {
   support(chain: EvmChain): ScanSupport
   listTokens(chain: EvmChain, address: string): Promise<ScanToken[]>
+  /** Set by listTokens when prices could not be fetched, so "unpriced" means "lookup failed", not "worthless". Optional. */
+  pricesUnavailable?: (chain: EvmChain, address: string) => boolean
 }
 
 function cleanText(value: unknown, max: number): string {
@@ -75,48 +76,24 @@ export function parseTokenBalances(payload: unknown): ScanToken[] {
   return items.map(parseItem).filter((t): t is ScanToken => t !== null)
 }
 
-export function createBlockscout(
-  options: { fetch?: FetchLike; apiKey?: string; timeoutMs?: number; ethBaseUrl?: string; proBaseUrl?: string } = {}
-): ScanProvider {
+export function createBlockscout(options: { fetch?: FetchLike; timeoutMs?: number; ethBaseUrl?: string } = {}): ScanProvider {
   const doFetch = options.fetch ?? fetch
-  const apiKey = options.apiKey ?? process.env.BLOCKSCOUT_API_KEY
   const timeoutMs = options.timeoutMs ?? SCAN_TIMEOUT_MS
   const ethBase = (options.ethBaseUrl ?? 'https://eth.blockscout.com').replace(/\/+$/, '')
-  const proBase = (options.proBaseUrl ?? 'https://api.blockscout.com').replace(/\/+$/, '')
   // Scans are interactive and rare. One at a time keeps the load on the provider small.
   const limit = createLimiter(1)
 
   return {
     support(chain) {
-      if (chain === 'base' && !apiKey) {
-        return { enabled: false, reason: 'Base scan is disabled: set BLOCKSCOUT_API_KEY, or add Base tokens by contract address.' }
-      }
-      return { enabled: true }
+      return chain === 'eth' ? { enabled: true } : { enabled: false, reason: 'Blockscout is only used for the Ethereum scan.' }
     },
 
     listTokens(chain, address) {
       return limit(async () => {
-        if (chain === 'eth') {
-          return parseTokenBalances(
-            await fetchJson(PROVIDER, doFetch, `${ethBase}/api/v2/addresses/${address}/token-balances`, { timeoutMs })
-          )
-        }
-
-        // Base goes through the keyed multichain API (documented shape, not live-verified: no key at spike time).
-        const found: ScanToken[] = []
-        let cursor = ''
-        for (let page = 0; page < MAX_PAGES; page++) {
-          const url = `${proBase}/8453/api/v2/addresses/${address}/tokens?type=ERC-20${cursor}`
-          const body = await fetchJson(PROVIDER, doFetch, url, {
-            headers: { Authorization: `Bearer ${apiKey}` },
-            timeoutMs,
-          })
-          found.push(...parseTokenBalances(body))
-          const next = (body as { next_page_params?: Record<string, unknown> | null }).next_page_params
-          if (!next) break
-          cursor = '&' + Object.entries(next).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v ?? ''))}`).join('&')
-        }
-        return found
+        if (chain !== 'eth') throw new ProviderError(PROVIDER, 'malformed', `no scan for ${chain}`)
+        return parseTokenBalances(
+          await fetchJson(PROVIDER, doFetch, `${ethBase}/api/v2/addresses/${address}/token-balances`, { timeoutMs })
+        )
       })
     },
   }

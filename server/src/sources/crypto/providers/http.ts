@@ -9,7 +9,7 @@ export async function fetchJson(
   provider: string,
   doFetch: FetchLike,
   url: string,
-  init: { method?: string; headers?: Record<string, string>; body?: unknown; timeoutMs?: number } = {}
+  init: { method?: string; headers?: Record<string, string>; body?: unknown; form?: string; timeoutMs?: number } = {}
 ): Promise<unknown> {
   const signal = AbortSignal.timeout(init.timeoutMs ?? DEFAULT_TIMEOUT_MS)
   let res: Response
@@ -18,10 +18,14 @@ export async function fetchJson(
       method: init.method ?? 'GET',
       headers: {
         Accept: 'application/json',
-        ...(init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(init.form !== undefined
+          ? { 'Content-Type': 'application/x-www-form-urlencoded' }
+          : init.body === undefined
+            ? {}
+            : { 'Content-Type': 'application/json' }),
         ...init.headers,
       },
-      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      body: init.form ?? (init.body === undefined ? undefined : JSON.stringify(init.body)),
       signal,
     })
   } catch (err) {

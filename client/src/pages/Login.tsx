@@ -32,7 +32,7 @@ export default function Login() {
 
   return (
     <Box sx={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', p: 2 }}>
-      <Paper variant="outlined" component="form" onSubmit={onSubmit} sx={{ width: '100%', maxWidth: 400, p: { xs: 3, sm: 4 }, display: 'grid', gap: 2.5 }}>
+      <Paper variant="outlined" component="form" onSubmit={onSubmit} sx={{ width: '100%', maxWidth: 400, p: { xs: 3, sm: 4 }, display: 'grid', gap: 2.5, boxShadow: '0 24px 64px rgba(0, 0, 0, 0.45)' }}>
         <Stack spacing={1.5} sx={{ alignItems: 'center', textAlign: 'center' }}>
           <Logo size={56} />
           <Box>

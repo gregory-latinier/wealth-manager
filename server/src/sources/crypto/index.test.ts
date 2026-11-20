@@ -15,7 +15,7 @@ const fx: FxProvider = { getUsdPerEur: async () => ({ usdPerEur: dec('1.25'), da
 interface Fakes {
   btc: Record<string, string | Error>
   evm: Record<string, string | Error> // key: `${chain}:${address}`
-  prices: { btc: string; eth: string } | Error
+  prices: { btc: string; eth: string; bnb?: string } | Error
 }
 
 function fakeProviders(f: Fakes): CryptoProviders {
@@ -41,7 +41,7 @@ function fakeProviders(f: Fakes): CryptoProviders {
   const prices: PriceProvider = {
     getNativePrices: async () => {
       if (f.prices instanceof Error) throw f.prices
-      return { btc: dec(f.prices.btc), eth: dec(f.prices.eth) }
+      return { btc: dec(f.prices.btc), eth: dec(f.prices.eth), bnb: f.prices.bnb ? dec(f.prices.bnb) : undefined }
     },
     getTokenPrices: async () => new Map(),
   }
@@ -85,6 +85,30 @@ describe('crypto source (native coins)', () => {
       { ref: nativeRef('btc', BTC), symbol: 'BTC', amount: '1.5', price: '60000' },
       { ref: nativeRef('eth', EVM), symbol: 'ETH', amount: '2', price: '2000' },
     ])
+  })
+
+  it('values BNB Chain in BNB, not ETH', async () => {
+    await createAddress({ chain: 'bsc', address: EVM, label: null })
+    const source = createCryptoSource(fakeProviders({ btc: {}, evm: { [`bsc:${EVM}`]: '3' }, prices: { btc: '60000', eth: '2000', bnb: '600' } }))
+
+    const { lines, failures } = await source.collect({ date: '2026-11-19' })
+    expect(failures).toEqual([])
+    expect(lines.map((l) => ({ ref: l.sourceRef, symbol: l.symbol, amount: l.amount.toString(), price: l.priceUsd.toString() }))).toEqual([
+      { ref: nativeRef('bsc', EVM), symbol: 'BNB', amount: '3', price: '600' },
+    ])
+  })
+
+  it('fails only the BNB Chain address when the BNB price is missing', async () => {
+    await createAddress({ chain: 'eth', address: EVM, label: null })
+    await createAddress({ chain: 'bsc', address: EVM, label: null })
+    const source = createCryptoSource(
+      fakeProviders({ btc: {}, evm: { [`eth:${EVM}`]: '1', [`bsc:${EVM}`]: '3' }, prices: { btc: '60000', eth: '2000' } })
+    )
+
+    const { lines, failures } = await source.collect({ date: '2026-11-19' })
+    expect(lines.map((l) => l.sourceRef)).toEqual([nativeRef('eth', EVM)])
+    expect(failures.map((f) => f.sourceRef)).toEqual([nativeRef('bsc', EVM)])
+    expect(failures[0].reason).toContain('BNB price is missing')
   })
 
   it('skips paused addresses entirely, without calling the providers (SC6)', async () => {

@@ -5,7 +5,9 @@ import { buildApp } from '../../index'
 import { pool, query } from '../../db/index'
 import { SESSION_COOKIE } from '../../lib/auth'
 import { createBlockscout, parseTokenBalances, type ScanProvider, type ScanToken } from './providers/blockscout'
-import { ProviderError } from './providers/types'
+import { dec } from '../../lib/money'
+import { createScanProvider, KNOWN_TOKENS } from './providers/known-tokens'
+import { ProviderError, type EvmProvider, type PriceProvider, type TokenBalance } from './providers/types'
 
 const fixture = (name: string) => JSON.parse(readFileSync(join(__dirname, '__fixtures__', name), 'utf8'))
 
@@ -56,35 +58,125 @@ describe('blockscout parser', () => {
 })
 
 describe('blockscout adapter', () => {
-  it('scans Ethereum keyless and Base with the key, following pages', async () => {
+  it('scans Ethereum keyless, without sending any key', async () => {
     const urls: string[] = []
     const headers: Array<Record<string, string> | undefined> = []
-    const page1 = { items: fixture('blockscout-eth-token-balances.json').slice(0, 1), next_page_params: { id: 7, value: '5', fiat_value: null } }
-    const page2 = { items: fixture('blockscout-eth-token-balances.json').slice(1, 2), next_page_params: null }
-    const pages = [page1, page2]
     const fetchFn = (async (url: string, init: RequestInit) => {
       urls.push(url)
       headers.push(init.headers as Record<string, string>)
-      return json(url.includes('eth.blockscout.com') ? fixture('blockscout-eth-token-balances.json') : pages.shift())
+      return json(fixture('blockscout-eth-token-balances.json'))
     }) as unknown as typeof fetch
 
-    const bs = createBlockscout({ fetch: fetchFn, apiKey: 'proapi_x' })
+    const bs = createBlockscout({ fetch: fetchFn })
     expect(await bs.listTokens('eth', EVM)).toHaveLength(3)
-    expect(urls[0]).toBe(`https://eth.blockscout.com/api/v2/addresses/${EVM}/token-balances`)
-    expect(headers[0]?.Authorization).toBeUndefined() // the key is never sent to the keyless host
-
-    expect((await bs.listTokens('base', EVM)).map((t) => t.symbol)).toEqual(['ENS', 'WHITE'])
-    expect(urls[1]).toBe(`https://api.blockscout.com/8453/api/v2/addresses/${EVM}/tokens?type=ERC-20`)
-    expect(urls[2]).toBe(`https://api.blockscout.com/8453/api/v2/addresses/${EVM}/tokens?type=ERC-20&id=7&value=5&fiat_value=`)
-    expect(headers[1]?.Authorization).toBe('Bearer proapi_x')
+    expect(urls).toEqual([`https://eth.blockscout.com/api/v2/addresses/${EVM}/token-balances`])
+    expect(headers[0]?.Authorization).toBeUndefined()
   })
 
-  it('reports Base as disabled without a key and Ethereum as enabled', () => {
-    const bs = createBlockscout({ apiKey: '' })
+  it('only supports Ethereum, the other chains use the known-token scan', async () => {
+    const bs = createBlockscout()
     expect(bs.support('eth')).toEqual({ enabled: true })
-    const base = bs.support('base')
-    expect(base.enabled).toBe(false)
-    expect(!base.enabled && base.reason).toContain('BLOCKSCOUT_API_KEY')
+    expect(bs.support('base').enabled).toBe(false)
+    expect(bs.support('bsc').enabled).toBe(false)
+    await expect(bs.listTokens('base', EVM)).rejects.toThrow(ProviderError)
+  })
+})
+
+describe('known-token scan (Base and BNB Chain)', () => {
+  const USDC_BASE = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913'
+  const USDT_BSC = '0x55d398326f99059ff775485246999027b3197955'
+  const WETH_BASE = '0x4200000000000000000000000000000000000006'
+
+  interface Calls { balances: Array<{ chain: string; tokens: number }>; priced: string[][] }
+
+  function build(opts: { held: Record<string, string>; failing?: string[]; priceDown?: boolean; priced?: Record<string, string> }) {
+    const calls: Calls = { balances: [], priced: [] }
+    const evm: EvmProvider = {
+      getBalances: async (chain, _address, tokens) => {
+        calls.balances.push({ chain, tokens: tokens.length })
+        const out: Record<string, TokenBalance> = {}
+        for (const t of tokens) {
+          if (opts.failing?.includes(t.contract)) out[t.contract] = { ok: false, error: new ProviderError('evm-rpc', 'rpc', 'boom') }
+          else out[t.contract] = { ok: true, balance: dec(opts.held[t.contract] ?? '0') }
+        }
+        return { native: dec(0), tokens: out }
+      },
+      getTokenMetadata: async () => {
+        throw new Error('not used')
+      },
+    }
+    const prices: PriceProvider = {
+      getNativePrices: async () => ({ btc: dec(1), eth: dec(1) }),
+      getTokenPrices: async (_chain, contracts) => {
+        calls.priced.push(contracts)
+        if (opts.priceDown) throw new ProviderError('coingecko', 'http', 'HTTP 429')
+        return new Map(Object.entries(opts.priced ?? {}).filter(([c]) => contracts.includes(c)).map(([c, v]) => [c, dec(v)]))
+      },
+    }
+    const ethereum: ScanProvider = { support: () => ({ enabled: true }), listTokens: async () => [] }
+    return { scan: createScanProvider({ evm, prices, ethereum }), calls }
+  }
+
+  it('reports only held tokens, with the known symbol and decimals, in one batched read', async () => {
+    const { scan, calls } = build({ held: { [USDC_BASE]: '25.5', [WETH_BASE]: '0.1' }, priced: { [USDC_BASE]: '0.9996', [WETH_BASE]: '3000' } })
+    const found = await scan.listTokens('base', EVM)
+
+    expect(found.map((t) => [t.symbol, t.balance.toString(), t.priceUsd?.toString()]).sort()).toEqual([
+      ['USDC', '25.5', '0.9996'],
+      ['WETH', '0.1', '3000'],
+    ])
+    expect(calls.balances).toHaveLength(1) // every known token in a single batch
+    expect(calls.balances[0].tokens).toBeGreaterThan(5)
+    expect(calls.priced).toHaveLength(1)
+    expect(calls.priced[0].sort()).toEqual([WETH_BASE, USDC_BASE]) // only the held ones are priced (sorted: 0x42… before 0x83…)
+  })
+
+  it("uses each chain's own decimals (USDT is 18 on BNB Chain)", () => {
+    const usdt = KNOWN_TOKENS.bsc!.find((t) => t.symbol === 'USDT')!
+    const usdc = KNOWN_TOKENS.base!.find((t) => t.symbol === 'USDC')!
+    expect(usdt.decimals).toBe(18)
+    expect(usdc.decimals).toBe(6)
+  })
+
+  it('has no duplicate contracts and only valid addresses in either list', () => {
+    for (const list of Object.values(KNOWN_TOKENS)) {
+      const lower = list!.map((t) => t.contract.toLowerCase())
+      expect(new Set(lower).size).toBe(lower.length)
+      for (const c of lower) expect(c).toMatch(/^0x[0-9a-f]{40}$/)
+    }
+  })
+
+  it('returns nothing and skips the price call for an empty wallet', async () => {
+    const { scan, calls } = build({ held: {} })
+    expect(await scan.listTokens('bsc', EVM)).toEqual([])
+    expect(calls.priced).toHaveLength(0)
+  })
+
+  it('leaves tokens unpriced when the price source is down, instead of failing the scan', async () => {
+    const { scan } = build({ held: { [USDT_BSC]: '12' }, priceDown: true })
+    const [t] = await scan.listTokens('bsc', EVM)
+    expect(t.symbol).toBe('USDT')
+    expect(t.balance.toString()).toBe('12')
+    expect(t.priceUsd).toBeNull()
+    expect(scan.pricesUnavailable?.('bsc', EVM)).toBe(true) // so the dialog says "lookup failed", not "worthless"
+  })
+
+  it('clears the price-failure flag on the next scan that gets prices', async () => {
+    const { scan } = build({ held: { [USDT_BSC]: '12' }, priced: { [USDT_BSC]: '1' } })
+    await scan.listTokens('bsc', EVM)
+    expect(scan.pricesUnavailable?.('bsc', EVM)).toBe(false)
+  })
+
+  it('skips a token whose balance read failed rather than reporting it as empty', async () => {
+    const { scan } = build({ held: { [USDC_BASE]: '5', [WETH_BASE]: '1' }, failing: [WETH_BASE] })
+    expect((await scan.listTokens('base', EVM)).map((t) => t.symbol)).toEqual(['USDC'])
+  })
+
+  it('routes Ethereum to Blockscout and the other chains to the known-token list', async () => {
+    const { scan } = build({ held: {} })
+    expect(scan.support('eth')).toEqual({ enabled: true })
+    expect(scan.support('base')).toEqual({ enabled: true })
+    expect(scan.support('bsc')).toEqual({ enabled: true })
   })
 })
 
