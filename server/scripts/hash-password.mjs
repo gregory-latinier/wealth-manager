@@ -53,4 +53,5 @@ if (process.argv[2] === undefined) {
 
 const hash = await bcrypt.hash(password, 12)
 console.log(`\nAPP_PASSWORD_HASH='${hash}'`)
-console.log('\nIn a .env file keep the single quotes (the hash contains "$"). In cPanel paste only the value.')
+console.log('\nIn a .env file keep the single quotes (the hash contains "$").')
+console.log(`\nOn a host that mangles "$" (cPanel), use this instead, it has no special characters:\nAPP_PASSWORD_HASH_B64=${Buffer.from(hash).toString('base64')}`)

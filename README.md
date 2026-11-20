@@ -82,7 +82,10 @@ pnpm snapshot:run
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | yes | PostgreSQL connection string. The local default is `postgresql://wmuser:wmpassword@localhost:5433/wealthmanager`, matching `docker-compose.yml`. |
-| `APP_PASSWORD_HASH` | yes | bcrypt hash of your password (`pnpm hash-password`). |
+| `APP_PASSWORD_HASH` | yes* | bcrypt hash of your password (`pnpm hash-password`). |
+| `APP_PASSWORD_HASH_B64` | yes* | The same hash, base64-encoded (also printed by `pnpm hash-password`). Use it on a host that mangles `$` in environment variables, such as cPanel. Wins over `APP_PASSWORD_HASH` when both are set. |
+
+\* Set one of the two.
 | `SNAPSHOT_TOKEN` | yes | Bearer token the cron uses, 32 characters or more. |
 | `ETH_RPC_URL` | no | Comma-separated JSON-RPC URLs for Ethereum. Replaces the public defaults. |
 | `BASE_RPC_URL` | no | Same, for Base. |
@@ -148,7 +151,9 @@ In cPanel, **Configurer une application Node.js**, then **Create Application**:
 - Application URL: your subdomain
 - Startup file: `server.js`
 
-Add the environment variables `DATABASE_URL`, `APP_PASSWORD_HASH` and `SNAPSHOT_TOKEN` (plus the optional ones you want). There is no `.env` file in production, so variables come from this screen. Save, then restart the application after any change. If the app fails to start with "not a valid bcrypt hash", check that the value was pasted whole and that `$` signs were not altered.
+Add the environment variables `DATABASE_URL`, `APP_PASSWORD_HASH_B64` and `SNAPSHOT_TOKEN` (plus the optional ones you want). There is no `.env` file in production, so variables come from this screen. Save, then restart the application after any change.
+
+Use `APP_PASSWORD_HASH_B64`, not `APP_PASSWORD_HASH`, here: a bcrypt hash contains `$` characters, and cPanel can pass the value through a shell that strips `$2b` and `$12`, leaving an invalid hash even though you pasted a valid one. `pnpm hash-password` prints both forms. The base64 form has no special characters.
 
 Generate the hash on your own machine with `pnpm hash-password`. Do not type the password into the server.
 

@@ -2,14 +2,24 @@ import './env'
 
 const BCRYPT_HASH = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/
 
+/**
+ * A bcrypt hash contains "$", and some hosting panels run the value through a shell that eats "$2b" and "$10".
+ * APP_PASSWORD_HASH_B64 carries the same hash base64-encoded (no "$"), so nothing can alter it. It wins when set.
+ */
 export function getPasswordHash(): string {
-  const hash = process.env.APP_PASSWORD_HASH?.trim()
+  const encoded = process.env.APP_PASSWORD_HASH_B64?.trim()
+  const hash = encoded ? Buffer.from(encoded, 'base64').toString('utf8').trim() : process.env.APP_PASSWORD_HASH?.trim()
   if (!hash) {
-    throw new Error('APP_PASSWORD_HASH is not set. Generate one with `pnpm hash-password` and set it in the environment.')
+    throw new Error(
+      'APP_PASSWORD_HASH is not set. Generate one with `pnpm hash-password` and set APP_PASSWORD_HASH_B64 (or APP_PASSWORD_HASH) in the environment.'
+    )
   }
   if (!BCRYPT_HASH.test(hash)) {
+    const source = encoded ? 'APP_PASSWORD_HASH_B64 does not decode to' : 'APP_PASSWORD_HASH is not'
+    // Show the shape, never the value: the log must not hold anything usable.
     throw new Error(
-      'APP_PASSWORD_HASH is not a valid bcrypt hash. In a .env file wrap it in single quotes, because it contains "$".'
+      `${source} a valid bcrypt hash (got ${hash.length} characters, expected 60 starting with "$2"). ` +
+        'If your host strips "$" from environment variables, use APP_PASSWORD_HASH_B64 instead. In a .env file wrap APP_PASSWORD_HASH in single quotes.'
     )
   }
   return hash
