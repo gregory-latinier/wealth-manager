@@ -9,10 +9,11 @@ import { Link as RouterLink } from 'react-router-dom'
 import AdminNav from '../components/AdminNav'
 import Allocation from '../components/Allocation'
 import Breakdown from '../components/Breakdown'
+import GroupingToggle from '../components/GroupingToggle'
 import NetWorthChart from '../components/NetWorthChart'
 import { ApiError } from '../lib/api'
 import { formatMoney } from '../lib/crypto'
-import { fetchDashboard, type Change, type Currency, type DashboardData } from '../lib/dashboard'
+import { fetchDashboard, type Change, type Currency, type DashboardData, type Grouping } from '../lib/dashboard'
 
 /**
  * Signed change as a pill. Direction is carried by the arrow and the sign, color only reinforces it.
@@ -108,6 +109,8 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [currency, setCurrency] = useState<Currency>('USD')
+  // One grouping for the donut and the table, so they never disagree.
+  const [grouping, setGrouping] = useState<Grouping>('asset')
   // Date whose breakdown is shown. null means the latest snapshot.
   const [date, setDate] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -193,10 +196,7 @@ export default function Dashboard() {
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 8 }}>
               <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3 }, height: '100%' }}>
-                <Typography variant="subtitle1" component="h2" sx={{ mb: 2 }}>
-                  Allocation
-                </Typography>
-                {data.breakdown && <Allocation lines={data.breakdown.lines} currency={currency} />}
+                {data.breakdown && <Allocation lines={data.breakdown.lines} currency={currency} grouping={grouping} onGroupingChange={setGrouping} />}
               </Paper>
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
@@ -212,13 +212,16 @@ export default function Dashboard() {
               <Typography variant="subtitle1" component="h2">
                 Holdings on {shownDate}
               </Typography>
-              {!isLatest && (
-                <Button size="small" onClick={() => setDate(null)}>
-                  Back to latest
-                </Button>
-              )}
+              <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                {!isLatest && (
+                  <Button size="small" onClick={() => setDate(null)}>
+                    Back to latest
+                  </Button>
+                )}
+                <GroupingToggle value={grouping} onChange={setGrouping} />
+              </Stack>
             </Stack>
-            {data.breakdown && <Breakdown lines={data.breakdown.lines} currency={currency} />}
+            {data.breakdown && <Breakdown lines={data.breakdown.lines} currency={currency} grouping={grouping} />}
           </Paper>
         </Stack>
       )}

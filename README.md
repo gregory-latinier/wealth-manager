@@ -38,6 +38,7 @@ Data providers, all keyless by default (see [`docs/providers.md`](docs/providers
 | Token scan on Base and BNB Chain | A built-in list of popular tokens, read over RPC, priced by DefiLlama. Keyless. Other tokens: add by contract address. |
 | Exchange balances | Kraken private API with a read-only key (spot, including staked). OKX is the next adapter. |
 | Exchange prices | Kraken public `AssetPairs` and `Ticker` |
+| Smardex leveraged positions | Read on-chain over the Ethereum RPC. Positions are found from the address's history on Blockscout, then valued by the protocol contract and priced in wstETH by DefiLlama. Keyless. |
 | USD/EUR rate | Frankfurter |
 
 ## Local development
@@ -89,6 +90,14 @@ The server refuses to start without a password (`APP_PASSWORD` or a valid hash) 
 Every spot balance on the account is tracked, including staked and earn balances (counted as the base asset, so `ETH2.S` is valued as ETH). Fiat is counted as cash. An asset with no USD price on the exchange is carried forward from its last value and marked stale, never valued at 0. If the exchange cannot be reached the whole account is carried forward the same way.
 
 The database holds ciphertext only, but anyone with both the database and `EXCHANGE_KEY_SECRET` can read the keys. That is why a read-only key matters: it can see balances and nothing else.
+
+### Track Smardex leveraged positions
+
+Run `pnpm db:migrate` once (creates `SmardexWallet`, and the `SmardexScan` / `SmardexPosition` cache tables), then open **Smardex** in the app and choose **Add wallet** with the Ethereum address you trade from. It does not have to be listed under Crypto. Each active wallet is checked for open long positions on the Smardex USDN market (WSTETH_USDN), including positions parked in LongFarming. A switch pauses a wallet, and removing one also clears its position cache (snapshot history is kept).
+
+Each open position is one line (symbol `wstETH`), valued by the protocol's own `getPositionValue` at the current wstETH price, so it is the position's net value (collateral plus profit or loss), not the size of the trade. A position that is closed or liquidated is skipped. One that is under water counts as 0, not as a debt. If the contract, the price or the history cannot be read, the position keeps its last value and is marked stale. The first snapshot reads the whole transaction history (about 15 s for a busy wallet). Later ones read only new transactions.
+
+Under the wallet list, the page also shows each open position in detail: opening date, collateral, leverage, entry price, liquidation price, what it is worth if closed now, and the profit or loss in wstETH and in USD. These are read live when you open the page (the first time for a wallet can take about 30 s). The figures are estimates: closing fees and gas are not included.
 
 ### Record a snapshot by hand
 

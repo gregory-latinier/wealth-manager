@@ -133,3 +133,29 @@ Kraken (`kraken.ts`): `POST /0/private/Balance`, signed with `API-Sign = base64(
 Asset codes are normalised: legacy names (`XXBT` is BTC, `XETH`, `XXDG` is DOGE, `ZUSD`, `ZEUR`), the suffixes `.S .M .F .B .P` (staking and earn variants) and `ETH2`. Variants of one asset are merged into one line. USD counts at 1. Everything else is priced from public `AssetPairs` (online pairs quoted in USD) and `Ticker` (field `c[0]`). An asset with no online USD pair is reported unpriced and carried forward.
 
 Keys: stored with AES-256-GCM, key derived with HKDF-SHA256 from `EXCHANGE_KEY_SECRET`, the account id bound as authenticated data so a ciphertext cannot be moved to another row. Format `v1.<iv>.<tag>.<ciphertext>`.
+
+## Update: Smardex leveraged positions (Nov 2026)
+
+Source type `smardex` (`server/src/sources/smardex/`). The wallets it reads are the `SmardexWallet` table, managed on the Smardex page (`/api/admin/smardex/wallets`). They are independent of the Crypto address list. The Smardex gateway (`usdn-gateway.api.smardex.io/.../positions?address=`) answers `403 Forbidden` from AWS API Gateway to any non-browser client, so it is not used. The positions are read from the contracts instead, which needs no key.
+
+A position has no owner-indexed lookup on-chain: it is identified by `PositionId(int24 tick, uint256 tickVersion, uint256 index)`. So the work is split in two:
+
+1. **Discovery** (`discovery.ts`). Blockscout v2 `GET /addresses/{address}/transactions?filter=from` (paginated by `next_page_params`) lists the address's transactions. Those sent to the protocol (`0x656cb8c6d154aad29d8771384089be5b5141f01a`), the UniversalRouter (`0x49f66b16...`) or LongFarming (`0xf9d36078...`) have their logs read with `GET /transactions/{hash}/logs`. `InitiatedOpenPosition` and `ValidatedOpenPosition` (owner is topic 1) and `PositionOwnershipTransferred` (new owner is topic 2) name the ids. Only logs emitted by the protocol contract count. The ids are cached in `SmardexPosition`, and `SmardexScan.lastTxHash` marks the newest transaction read, so later runs only read newer ones. Only ids are cached, never values.
+2. **Valuation** (`index.ts`). Over the Ethereum RPC, `getLongPosition(id)` gives the owner as the protocol sees it (zero address: closed or liquidated). If that owner is LongFarming, `getPositionInfo(tick, tickVersion, index)` on LongFarming gives the real owner. For an open position, `getPositionValue(id, price, timestamp)` gives its value in wstETH wei (int256), with `price` the wstETH USD price in 18 decimals. The price comes from DefiLlama (`ethereum:0x7f39...`, as for any token).
+
+Deleting a wallet clears its rows in `SmardexPosition` and `SmardexScan`, so re-adding it rescans from the start.
+
+**Position details** (`details.ts`, `GET /api/admin/smardex/wallets/:id/positions`). The Smardex page shows, per open position, what the snapshot does not store. Read live, in one batched `eth_call`: `getLongPosition` (collateral `amount` and `totalExpo`, so leverage is `totalExpo / amount`), `getEffectivePriceForTick(tick)` on the protocol (the liquidation price: the position's tick already includes its liquidation penalty) and `getPositionValue`. From the opening event, cached in `SmardexPosition.openedAt` and `entryPrice` (migration 010): the date (`timestamp` of `InitiatedOpenPosition`) and the entry price (`startPrice`, replaced by `newStartPrice` from `ValidatedOpenPosition` when that event is found). PnL in wstETH is value minus collateral. PnL in USD is value at today's price minus collateral at the entry price, so it includes the move of wstETH itself. A position cached before migration 010 has no opening data: the first request re-reads the whole history of that wallet once (about 30 s for a busy one), then it is cached. A failed read leaves that field empty and flags the position; it is never shown as 0.
+
+Caveats: "worth if closed now" is the protocol's own valuation and does not include the closing fee or gas. The entry price is the price recorded when the position was opened, not necessarily the one a front end displayed.
+
+Selectors and event topics are computed at start from their signatures with the repo's own keccak-256 (`lib/keccak.ts`, tested against published vectors) rather than hard-coded.
+
+Gotchas found live:
+- **Blockscout v2 answers HTTP 500 for an all-lowercase address.** Requests must use the EIP-55 checksummed form (`toChecksumAddress`), while the app stores addresses lowercase.
+- publicnode refuses `eth_getLogs` over any real range without a token, which is why discovery goes through Blockscout rather than reading events over RPC.
+- Blockscout's legacy `?module=logs` endpoint times out for this wallet. Use the v2 API.
+
+Failure behaviour: a failed scan does not hide earlier finds (the cache is still valued) and is reported as a failure on `<address>:scan`, which makes the snapshot partial instead of silently complete. A failed contract read or missing price fails that position, which the engine carries forward as stale. Nothing is ever valued at 0 because a call failed.
+
+Not covered: pending LongFarming rewards (SDEX), other Smardex markets, and USDN or the liquidity-provider side. Only long positions on the WSTETH_USDN market are read.

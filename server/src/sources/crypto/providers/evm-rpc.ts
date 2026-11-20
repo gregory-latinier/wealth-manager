@@ -95,20 +95,38 @@ function padAddress(address: string): string {
   return address.toLowerCase().replace(/^0x/, '').padStart(64, '0')
 }
 
-export function createEvmRpc(
-  options: {
-    fetch?: FetchLike
-    urls?: Partial<Record<EvmChain, string[]>>
-    timeoutMs?: number
-    concurrency?: number
-  } = {}
-): EvmProvider {
+export interface RpcOptions {
+  fetch?: FetchLike
+  urls?: Partial<Record<EvmChain, string[]>>
+  timeoutMs?: number
+  concurrency?: number
+}
+
+export type RpcBatch = (chain: EvmChain, calls: Array<Pick<RpcRequest, 'method' | 'params'>>) => Promise<RpcOutcome[]>
+
+/** `eth_call` result of one call: the returned hex, or why it failed (a revert is a failure, never an empty value). */
+export type CallOutcome = { ok: true; result: string } | { ok: false; error: string }
+
+/** Read-only contract calls on one chain, sent as one batch with the same URL failover as the balance reads. */
+export function createEthCall(chain: EvmChain, options: RpcOptions = {}): (calls: Array<{ to: string; data: string }>) => Promise<CallOutcome[]> {
+  const batch = createRpcBatch(options)
+  return async (calls) => {
+    if (calls.length === 0) return []
+    const outcomes = await batch(
+      chain,
+      calls.map((c) => ({ method: 'eth_call', params: [{ to: c.to, data: c.data }, 'latest'] }))
+    )
+    return outcomes.map((o): CallOutcome => (o.ok ? o : { ok: false, error: o.error.message }))
+  }
+}
+
+function createRpcBatch(options: RpcOptions): RpcBatch {
   const doFetch = options.fetch ?? fetch
   const urls = { ...rpcUrlsFromEnv(), ...options.urls }
   const limit = createLimiter(options.concurrency ?? 2)
 
   /** Sends one batch to the first URL that answers, and returns outcomes in request order. */
-  async function batch(chain: EvmChain, calls: Array<Pick<RpcRequest, 'method' | 'params'>>): Promise<RpcOutcome[]> {
+  return async function batch(chain, calls) {
     const requests: RpcRequest[] = calls.map((c, i) => ({ jsonrpc: '2.0', id: i + 1, ...c }))
     let lastError: ProviderError | undefined
 
@@ -138,6 +156,10 @@ export function createEvmRpc(
     }
     throw lastError ?? new ProviderError('evm-rpc', 'network', `no RPC URL configured for ${chain}`)
   }
+}
+
+export function createEvmRpc(options: RpcOptions = {}): EvmProvider {
+  const batch = createRpcBatch(options)
 
   const callData = (selector: string, address?: string) => (address ? selector + padAddress(address) : selector)
 
