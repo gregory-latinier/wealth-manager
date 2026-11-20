@@ -9,7 +9,7 @@
     "start": "node dist/index.js",
     "snapshot:run": "tsx src/scripts/snapshot-run.ts",
     "hash-password": "node scripts/hash-password.mjs",
-    "migrate:prod": "node node_modules/node-pg-migrate/bin/node-pg-migrate.js up -m dist/migrations",
+    "migrate:prod": "node --disable-wasm-trap-handler node_modules/node-pg-migrate/bin/node-pg-migrate.js up -m dist/migrations",
     "migrate:up": "tsx node_modules/node-pg-migrate/bin/node-pg-migrate.js up -m migrations --envPath ../.env",
     "migrate:down": "tsx node_modules/node-pg-migrate/bin/node-pg-migrate.js down -m migrations --envPath ../.env",
     "migrate:create": "tsx node_modules/node-pg-migrate/bin/node-pg-migrate.js create -m migrations --envPath ../.env",

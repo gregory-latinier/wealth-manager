@@ -166,7 +166,13 @@ Prefer `APP_PASSWORD` over a bcrypt hash here: a hash contains `$` characters, a
 
 On the same screen, click **Run JS script** and choose `migrate:prod`. Run it again after every deployment that adds a migration. Do not click **Run NPM Install**: `node_modules/` is already in the artifact.
 
-`migrate:prod` starts `node-pg-migrate` through `node`, because the artifact zip loses file permissions and `node_modules/.bin/node-pg-migrate` would fail with "permission denied".
+`migrate:prod` starts `node-pg-migrate` through `node`, because the artifact zip loses file permissions and `node_modules/.bin/node-pg-migrate` would fail with "permission denied". It also passes `--disable-wasm-trap-handler`: o2switch caps each process's address space at 4 GB, and without the flag Node 20 fails with `RangeError: WebAssembly.instantiate(): Out of memory` as soon as it loads its built-in HTTP client.
+
+The running app can hit the same limit on its first outbound request (a price or balance lookup). Add this environment variable to the Node.js app as well (Node 20.15 or later):
+
+```text
+NODE_OPTIONS=--disable-wasm-trap-handler
+```
 
 ### If the site shows a generic error page
 
