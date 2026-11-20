@@ -4,6 +4,7 @@ import DashboardIcon from '@mui/icons-material/DonutLargeOutlined'
 import ExchangeIcon from '@mui/icons-material/CurrencyExchange'
 import LeverageIcon from '@mui/icons-material/CandlestickChartOutlined'
 import LogoutIcon from '@mui/icons-material/LogoutOutlined'
+import StakingIcon from '@mui/icons-material/SavingsOutlined'
 import type { ReactNode } from 'react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
@@ -16,6 +17,7 @@ const LINKS = [
   { to: '/admin/crypto', label: 'Crypto', Icon: CryptoIcon },
   { to: '/admin/exchanges', label: 'Exchanges', Icon: ExchangeIcon },
   { to: '/admin/smardex', label: 'Smardex', Icon: LeverageIcon },
+  { to: '/admin/staking', label: 'Staking', Icon: StakingIcon },
 ]
 
 /** Pill-shaped tab bar. The current page is the violet gradient pill. */

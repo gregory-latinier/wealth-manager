@@ -15,6 +15,9 @@ function describeRef(line: BreakdownLine): string {
     const [owner, tick] = line.sourceRef.split(':')
     return `Leveraged long · ${shortAddress(owner)} · tick ${tick}`
   }
+  // Staking refs are `<position id>:SYMBOL`, or `<position id>:rewards` for the claimable rewards. The id means nothing to a reader,
+  // and the platform is not in the snapshot line.
+  if (line.sourceType === 'staking') return line.sourceRef.endsWith(':rewards') ? 'Staking · claimable rewards' : 'Staked'
   const [chain, address] = line.sourceRef.split(':')
   // Exchange refs are `kraken:<account id>:BTC`. The account id means nothing to a reader, so only the exchange is shown.
   if (line.sourceType === 'exchange') return EXCHANGE_NAMES[chain] ?? line.sourceRef
