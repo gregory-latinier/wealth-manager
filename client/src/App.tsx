@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, RequireAuth } from './lib/auth'
+import Aave from './pages/admin/Aave'
 import Crypto from './pages/admin/Crypto'
 import Exchanges from './pages/admin/Exchanges'
 import Smardex from './pages/admin/Smardex'
@@ -41,6 +42,14 @@ export default function App() {
           element={
             <RequireAuth>
               <Smardex />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/aave"
+          element={
+            <RequireAuth>
+              <Aave />
             </RequireAuth>
           }
         />

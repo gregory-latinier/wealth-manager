@@ -14,7 +14,7 @@ Built to be self-hosted on cheap shared hosting ([o2switch](https://www.o2switch
 - The dashboard shows the total, the 1-day and 7-day change, the evolution chart, and the holdings of any day.
 - If a provider fails, the last known value is carried forward and marked **stale**, so one outage never leaves a hole in the chart.
 
-Out of scope for v1: backfilling history, trades, taxes and P&L, other chains, NFTs, BTC xpubs. Other source types (Aave, forex, bank, stocks) are meant to plug in later as new `SourceType`s.
+Out of scope for v1: backfilling history, trades, taxes and P&L, other chains, NFTs, BTC xpubs. Other source types (forex, bank, stocks) are meant to plug in later as new `SourceType`s.
 
 ## Stack
 
@@ -98,6 +98,8 @@ Run `pnpm db:migrate` once (creates `SmardexWallet`, and the `SmardexScan` / `Sm
 
 Each open position is one line (symbol `wstETH`), valued by the protocol's own `getPositionValue` at the current wstETH price, so it is the position's net value (collateral plus profit or loss), not the size of the trade. A position that is closed or liquidated is skipped. One that is under water counts as 0, not as a debt. If the contract, the price or the history cannot be read, the position keeps its last value and is marked stale. The first snapshot reads the whole transaction history (about 15 s for a busy wallet). Later ones read only new transactions.
 
+Under the wallet list, the page also shows each open position in detail: opening date, collateral, leverage, entry price, liquidation price, what it is worth if closed now, and the profit or loss in wstETH and in USD. These are read live when you open the page (the first time for a wallet can take about 30 s). The figures are estimates: closing fees and gas are not included.
+
 ### Track staked tokens
 
 For tokens locked on a platform that cannot be read automatically (for example SDEX staked on Everything). Run `pnpm db:migrate` once (creates `StakingPosition`), then open **Staking** in the app and choose **Add stake** with the platform name, the Ethereum token contract and the number of tokens staked. The symbol is read from the contract. The stake is valued at the live token price in every snapshot, and shows as its own **Staking** type on the dashboard.
@@ -106,7 +108,13 @@ The amount is yours to maintain: edit it when you stake or unstake. Past snapsho
 
 **Claimable rewards.** Some staking contracts pay a reward token you can claim (EV on Everything). Switch on **Also count the rewards I can claim** in the add or edit dialog and give the staking contract and your wallet. At each snapshot the contract is asked what the wallet can claim now (`getClaimableRewards(address)`) and which token that is (`getEvToken()`), and the amount is valued at that token's price as a second line, shown as **Staking · claimable rewards**. The amount grows every second, so it is read from the chain and not typed in. The contract is checked when you save, so one that does not answer like a staking contract is refused. Only what is claimable counts, not the rewards still pending. Everything: contract `0x25b5D0216D28b3B348738326C514f7d1D4f8Ee2f`. Run `pnpm db:migrate` again (adds two columns).
 
-Under the wallet list, the page also shows each open position in detail: opening date, collateral, leverage, entry price, liquidation price, what it is worth if closed now, and the profit or loss in wstETH and in USD. These are read live when you open the page (the first time for a wallet can take about 30 s). The figures are estimates: closing fees and gas are not included.
+### Track Aave positions
+
+Aave v4 (the version at pro.aave.com) keeps a position inside a Spoke contract, not as tokens in your wallet, so the Crypto page cannot see it and nothing is counted twice. Run `pnpm db:migrate` once (creates `AaveWallet`), then open **Aave** in the app and choose **Add wallet** with the Ethereum address you lend and borrow from.
+
+At each snapshot the app asks the Spoke what the wallet has supplied and what it owes on every reserve, interest included. Each supplied asset is a positive line (for example WETH) and each borrowed asset is a **negative** line (for example USDC), so the borrowing is subtracted from your net worth. Both are priced like any other token. The page also shows the position live, with the health factor (below 1 it can be liquidated). On the dashboard a loan is not drawn in the donut: the donut shows what you hold and notes the amount borrowed.
+
+If the Spoke or a price cannot be read, the previous lines of that wallet are kept and marked stale, the debt included, so an outage never makes the debt vanish and your net worth jump. Only Ethereum mainnet and the Spoke `0x94e7A5dCbE816e498b89aB752661904E2F56c485` are read for now. Aave v3 positions are not.
 
 ### Record a snapshot by hand
 

@@ -1,3 +1,4 @@
+import { createDefaultAaveSource } from './aave/index'
 import { createDefaultCryptoSource } from './crypto/index'
 import { createDefaultExchangeSource } from './exchange/index'
 import { registerSource } from './registry'
@@ -14,4 +15,5 @@ export function registerDefaultSources(): void {
   registerSource(createDefaultExchangeSource())
   registerSource(createDefaultSmardexSource())
   registerSource(createDefaultStakingSource())
+  registerSource(createDefaultAaveSource())
 }
