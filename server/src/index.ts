@@ -5,6 +5,7 @@ import fs from 'fs'
 import path from 'path'
 import rateLimit from '@fastify/rate-limit'
 import { assertConfig } from './lib/config'
+import { query } from './db/index'
 import { healthRoutes } from './routes/health'
 import { authRoutes } from './routes/auth'
 import { dashboardRoutes } from './routes/dashboard'
@@ -24,7 +25,8 @@ const DEFAULT_CLIENT_DIST = path.join(__dirname, '../../client/dist')
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: process.env.NODE_ENV !== 'test',
+    // In production server.js sets WM_LOG_FILE, because Passenger hides stdout on shared hosting.
+    logger: process.env.NODE_ENV === 'test' ? false : process.env.WM_LOG_FILE ? { file: process.env.WM_LOG_FILE } : true,
     // Behind Passenger the client address arrives in X-Forwarded-For. Without this every visitor
     // shares the proxy's address and the login rate limit would lock the owner out with the attacker.
     trustProxy: process.env.NODE_ENV === 'production',
@@ -76,6 +78,14 @@ export async function start() {
   } catch (err) {
     app.log.error(err)
     process.exit(1)
+  }
+
+  // A wrong DATABASE_URL does not stop the server from listening, so check it now and say so in the log.
+  try {
+    await query('SELECT 1')
+    app.log.info('database connection ok')
+  } catch (err) {
+    app.log.error({ err }, 'database connection FAILED, check DATABASE_URL and that the user has access to the database')
   }
 }
 

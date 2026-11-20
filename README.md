@@ -156,6 +156,10 @@ Generate the hash on your own machine with `pnpm hash-password`. Do not type the
 
 On the same screen, click **Run JS script** and choose `migrate:prod`. Run it again after every deployment that adds a migration. Do not click **Run NPM Install**: `node_modules/` is already in the artifact.
 
+### If the site shows a generic error page
+
+Passenger hides the app's output, so `server.js` writes its own log to `wealth/server/logs/app.log` (override with a `LOG_FILE` variable). Open it in cPanel's File Manager. The first line says which Node version is running and which of `DATABASE_URL`, `APP_PASSWORD_HASH` and `SNAPSHOT_TOKEN` are set, and the lines after it give the exact reason the app stopped, for example a missing variable, an invalid bcrypt hash, or `database connection FAILED`. If the file does not exist at all, Passenger never ran `server.js`: check the application root (`wealth/server`) and the startup file (`server.js`) in **Configurer une application Node.js**. The file is rotated at 5 MB and is never served to visitors.
+
 ### 7. Schedule the daily snapshot
 
 In cPanel, **Tâches Cron**, add one job per day. Snapshots are keyed by UTC date, so pick a time that is unambiguous in your server's timezone (shortly after midnight UTC works well):
