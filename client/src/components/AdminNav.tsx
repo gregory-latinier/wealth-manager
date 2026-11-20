@@ -2,6 +2,7 @@ import { AppBar, Box, Button, Container, IconButton, Stack, Toolbar, Tooltip, Ty
 import CryptoIcon from '@mui/icons-material/CurrencyBitcoin'
 import DashboardIcon from '@mui/icons-material/DonutLargeOutlined'
 import ExchangeIcon from '@mui/icons-material/CurrencyExchange'
+import LeverageIcon from '@mui/icons-material/CandlestickChartOutlined'
 import LogoutIcon from '@mui/icons-material/LogoutOutlined'
 import type { ReactNode } from 'react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
@@ -14,6 +15,7 @@ const LINKS = [
   { to: '/', label: 'Dashboard', Icon: DashboardIcon },
   { to: '/admin/crypto', label: 'Crypto', Icon: CryptoIcon },
   { to: '/admin/exchanges', label: 'Exchanges', Icon: ExchangeIcon },
+  { to: '/admin/smardex', label: 'Smardex', Icon: LeverageIcon },
 ]
 
 /** Pill-shaped tab bar. The current page is the violet gradient pill. */
