@@ -1,4 +1,5 @@
 import { AppBar, Box, Button, Container, IconButton, Stack, Toolbar, Tooltip, Typography } from '@mui/material'
+import BankIcon from '@mui/icons-material/AccountBalanceOutlined'
 import CryptoIcon from '@mui/icons-material/CurrencyBitcoin'
 import DashboardIcon from '@mui/icons-material/DonutLargeOutlined'
 import ExchangeIcon from '@mui/icons-material/CurrencyExchange'
@@ -11,13 +12,14 @@ import { useAuth } from '../lib/auth'
 import { VIOLET } from '../theme'
 import Logo from './Logo'
 
-// One entry per admin page. Later source types (aave, forex, bank, stocks) add a line here.
+// One entry per admin page. Later source types (forex, bank, stocks) add a line here.
 const LINKS = [
   { to: '/', label: 'Dashboard', Icon: DashboardIcon },
   { to: '/admin/crypto', label: 'Crypto', Icon: CryptoIcon },
   { to: '/admin/exchanges', label: 'Exchanges', Icon: ExchangeIcon },
   { to: '/admin/smardex', label: 'Smardex', Icon: LeverageIcon },
   { to: '/admin/staking', label: 'Staking', Icon: StakingIcon },
+  { to: '/admin/aave', label: 'Aave', Icon: BankIcon },
 ]
 
 /** Pill-shaped tab bar. The current page is the violet gradient pill. */

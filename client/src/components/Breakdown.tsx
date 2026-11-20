@@ -18,6 +18,11 @@ function describeRef(line: BreakdownLine): string {
   // Staking refs are `<position id>:SYMBOL`, or `<position id>:rewards` for the claimable rewards. The id means nothing to a reader,
   // and the platform is not in the snapshot line.
   if (line.sourceType === 'staking') return line.sourceRef.endsWith(':rewards') ? 'Staking · claimable rewards' : 'Staked'
+  // Aave refs are `<address>:<reserve id>:supply|debt`. A debt line has a negative amount, so "Borrowed" is enough to read it.
+  if (line.sourceType === 'aave') {
+    const [owner, , side] = line.sourceRef.split(':')
+    return `${side === 'debt' ? 'Aave · borrowed' : 'Aave · supplied'} · ${shortAddress(owner)}`
+  }
   const [chain, address] = line.sourceRef.split(':')
   // Exchange refs are `kraken:<account id>:BTC`. The account id means nothing to a reader, so only the exchange is shown.
   if (line.sourceType === 'exchange') return EXCHANGE_NAMES[chain] ?? line.sourceRef
@@ -50,11 +55,21 @@ function groupLines(lines: BreakdownLine[], currency: Currency, grouping: Groupi
   return groups.sort((a, b) => b.value - a.value)
 }
 
+/** A negative share (a debt) is drawn as a red bar of the same length, so it never gets a negative width. */
 function ShareBar({ share }: { share: number }) {
+  const owed = share < 0
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       <Box sx={{ flexGrow: 1, height: 8, borderRadius: 4, bgcolor: 'action.hover' }}>
-        <Box sx={{ width: `${share}%`, height: '100%', backgroundImage: `linear-gradient(90deg, ${VIOLET.deep}, ${VIOLET.accent})`, borderRadius: 4 }} />
+        <Box
+          sx={{
+            width: `${Math.min(Math.abs(share), 100)}%`,
+            height: '100%',
+            backgroundImage: owed ? 'none' : `linear-gradient(90deg, ${VIOLET.deep}, ${VIOLET.accent})`,
+            bgcolor: owed ? 'error.main' : undefined,
+            borderRadius: 4,
+          }}
+        />
       </Box>
       <Typography variant="caption" color="text.secondary" sx={{ minWidth: 44, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
         {share.toFixed(1)}%
@@ -110,7 +125,8 @@ export default function Breakdown({ lines, currency, grouping }: { lines: Breakd
   if (lines.length === 0) return <Typography color="text.secondary">No holdings in this snapshot.</Typography>
 
   const groups = groupLines(lines, currency, grouping)
-  const total = groups.reduce((sum, g) => sum + g.value, 0)
+  // Shares are of what is held. Dividing by the net worth would push every share past 100% as soon as something is borrowed.
+  const total = groups.reduce((sum, g) => sum + Math.max(g.value, 0), 0)
   const isOpen = (g: Group) => toggled[`${grouping}:${g.key}`] ?? grouping === 'type'
   const toggle = (g: Group) => setToggled((t) => ({ ...t, [`${grouping}:${g.key}`]: !isOpen(g) }))
 

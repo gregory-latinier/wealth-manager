@@ -17,8 +17,12 @@ interface Slice {
   share: number
 }
 
-/** Sums lines per group, keeps the largest few and folds the rest into "Other". */
-function slices(lines: BreakdownLine[], currency: Currency, grouping: Grouping): Slice[] {
+/**
+ * Sums lines per group, keeps the largest few and folds the rest into "Other".
+ * A group that nets out below zero (a loan larger than what is held in that group) cannot be drawn, so it is left out of the slices
+ * and reported as `owed`. Shares are those of the drawn slices, so they add up to 100%.
+ */
+function slices(lines: BreakdownLine[], currency: Currency, grouping: Grouping): { slices: Slice[]; owed: number } {
   const byGroup = new Map<string, { label: string; value: number }>()
   for (const l of lines) {
     const key = groupKey(l, grouping)
@@ -26,12 +30,14 @@ function slices(lines: BreakdownLine[], currency: Currency, grouping: Grouping):
     const v = Number(currency === 'USD' ? l.valueUsd : l.valueEur)
     byGroup.set(key, { label, value: (byGroup.get(key)?.value ?? 0) + v })
   }
-  const sorted = [...byGroup].map(([key, g]) => ({ key, ...g })).sort((a, b) => b.value - a.value)
+  const groups = [...byGroup].map(([key, g]) => ({ key, ...g }))
+  const owed = groups.filter((g) => g.value < 0).reduce((sum, g) => sum - g.value, 0)
+  const sorted = groups.filter((g) => g.value > 0).sort((a, b) => b.value - a.value)
   const total = sorted.reduce((sum, s) => sum + s.value, 0)
   const head = sorted.slice(0, sorted.length > SLICES.length ? MAX_NAMED : SLICES.length)
   const rest = sorted.slice(head.length).reduce((sum, s) => sum + s.value, 0)
   const all = rest > 0 ? [...head, { key: '\u0000other', label: 'Other', value: rest }] : head
-  return all.map((s) => ({ ...s, share: total > 0 ? (s.value / total) * 100 : 0 }))
+  return { slices: all.map((s) => ({ ...s, share: total > 0 ? (s.value / total) * 100 : 0 })), owed }
 }
 
 /**
@@ -48,8 +54,9 @@ export default function Allocation({ lines, currency, grouping, onGroupingChange
     setPinned(null)
   }, [grouping])
 
-  const data = slices(lines, currency, grouping).filter((s) => s.value > 0)
-  const total = data.reduce((sum, s) => sum + s.value, 0)
+  const { slices: data, owed } = slices(lines, currency, grouping)
+  // The middle of the donut is the net worth, so it is the headline figure even when part of it is borrowed.
+  const total = data.reduce((sum, s) => sum + s.value, 0) - owed
   // A pinned slice that no longer exists (other currency, other day) is ignored rather than leaving everything dimmed.
   const active = data.find((s) => s.key === (hovered ?? pinned)) ?? null
 
@@ -154,6 +161,11 @@ export default function Allocation({ lines, currency, grouping, onGroupingChange
                 </ButtonBase>
               )
             })}
+            {owed > 0 && (
+              <Typography variant="caption" color="text.secondary" sx={{ px: 1, pt: 0.5 }}>
+                Net of {formatMoney(String(owed), currency)} borrowed, which is not drawn.
+              </Typography>
+            )}
           </Stack>
         </Stack>
       )}

@@ -9,6 +9,7 @@ import { query } from './db/index'
 import { healthRoutes } from './routes/health'
 import { authRoutes } from './routes/auth'
 import { dashboardRoutes } from './routes/dashboard'
+import { adminAaveRoutes, type AdminAaveOptions } from './routes/admin-aave'
 import { adminCryptoRoutes, type AdminCryptoOptions } from './routes/admin-crypto'
 import { adminExchangeRoutes, type AdminExchangeOptions } from './routes/admin-exchange'
 import { adminSmardexRoutes, type SmardexRouteOptions } from './routes/admin-smardex'
@@ -18,6 +19,7 @@ import { registerDefaultSources } from './sources/register-defaults'
 
 export interface BuildAppOptions {
   snapshots?: SnapshotRouteOptions
+  adminAave?: AdminAaveOptions
   adminCrypto?: AdminCryptoOptions
   adminExchange?: AdminExchangeOptions
   adminSmardex?: SmardexRouteOptions
@@ -46,6 +48,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
   await app.register(healthRoutes, { prefix: '/api' })
   await app.register(authRoutes, { prefix: '/api/auth' })
+  await app.register(adminAaveRoutes, { prefix: '/api/admin/aave', ...options.adminAave })
   await app.register(adminCryptoRoutes, { prefix: '/api/admin/crypto', ...options.adminCrypto })
   await app.register(adminExchangeRoutes, { prefix: '/api/admin/exchanges', ...options.adminExchange })
   await app.register(adminSmardexRoutes, { prefix: '/api/admin/smardex', ...options.adminSmardex })
