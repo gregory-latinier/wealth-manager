@@ -1,4 +1,6 @@
 import './env'
+import crypto from 'crypto'
+import bcrypt from 'bcryptjs'
 
 const BCRYPT_HASH = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/
 
@@ -11,7 +13,7 @@ export function getPasswordHash(): string {
   const hash = encoded ? Buffer.from(encoded, 'base64').toString('utf8').trim() : process.env.APP_PASSWORD_HASH?.trim()
   if (!hash) {
     throw new Error(
-      'APP_PASSWORD_HASH is not set. Generate one with `pnpm hash-password` and set APP_PASSWORD_HASH_B64 (or APP_PASSWORD_HASH) in the environment.'
+      'APP_PASSWORD_HASH is not set. Set APP_PASSWORD to your password, or generate a hash with `pnpm hash-password` and set APP_PASSWORD_HASH_B64 (or APP_PASSWORD_HASH).'
     )
   }
   if (!BCRYPT_HASH.test(hash)) {
@@ -23,6 +25,33 @@ export function getPasswordHash(): string {
     )
   }
   return hash
+}
+
+const MIN_PASSWORD_LENGTH = 8
+
+/**
+ * The simplest setup: the password itself in the environment. Fine for a single-owner app whose host already
+ * keeps its environment private. It wins over any hash, so a hash a host has mangled cannot block startup.
+ */
+export function getPlainPassword(): string | undefined {
+  const password = process.env.APP_PASSWORD
+  if (!password) return undefined
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(`APP_PASSWORD is too short (minimum ${MIN_PASSWORD_LENGTH} characters).`)
+  }
+  return password
+}
+
+/** Compares SHA-256 digests, so the comparison is constant-time whatever the lengths. */
+function samePassword(candidate: string, expected: string): boolean {
+  const digest = (value: string) => crypto.createHash('sha256').update(value).digest()
+  return crypto.timingSafeEqual(digest(candidate), digest(expected))
+}
+
+export async function verifyPassword(candidate: string): Promise<boolean> {
+  const plain = getPlainPassword()
+  if (plain !== undefined) return samePassword(candidate, plain)
+  return bcrypt.compare(candidate, getPasswordHash())
 }
 
 const MIN_TOKEN_LENGTH = 32
@@ -40,6 +69,6 @@ export function getSnapshotToken(): string {
 
 /** Fails fast at startup so a misconfigured deployment never serves a login or a cron endpoint it cannot check. */
 export function assertConfig(): void {
-  getPasswordHash()
+  if (getPlainPassword() === undefined) getPasswordHash()
   getSnapshotToken()
 }

@@ -53,7 +53,13 @@ Open http://localhost:5173 and log in.
 
 ### Choose your password
 
-The password is never stored in clear text. Generate a bcrypt hash and put it in `.env`:
+The simplest option is the password itself in `.env` (8 characters or more):
+
+```env
+APP_PASSWORD=your-password
+```
+
+That is fine for a personal app on a machine you control. If you would rather not keep the password in clear text, store a bcrypt hash instead:
 
 ```bash
 pnpm hash-password            # prompts, input hidden, minimum 12 characters
@@ -65,9 +71,11 @@ Wrap the value in **single quotes** in `.env`, because a bcrypt hash contains `$
 APP_PASSWORD_HASH='$2b$12$...'
 ```
 
+When `APP_PASSWORD` is set it is used and the hash variables are ignored.
+
 Generate the snapshot token with `openssl rand -hex 32`.
 
-The server refuses to start without a valid `APP_PASSWORD_HASH` and a `SNAPSHOT_TOKEN` of at least 32 characters.
+The server refuses to start without a password (`APP_PASSWORD` or a valid hash) and a `SNAPSHOT_TOKEN` of at least 32 characters.
 
 ### Record a snapshot by hand
 
@@ -82,10 +90,9 @@ pnpm snapshot:run
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | yes | PostgreSQL connection string. The local default is `postgresql://wmuser:wmpassword@localhost:5433/wealthmanager`, matching `docker-compose.yml`. |
-| `APP_PASSWORD_HASH` | yes* | bcrypt hash of your password (`pnpm hash-password`). |
-| `APP_PASSWORD_HASH_B64` | yes* | The same hash, base64-encoded (also printed by `pnpm hash-password`). Use it on a host that mangles `$` in environment variables, such as cPanel. Wins over `APP_PASSWORD_HASH` when both are set. |
-
-\* Set one of the two.
+| `APP_PASSWORD` | yes* | Your password in plain text, 8 characters or more. Wins over the hash variables when set. |
+| `APP_PASSWORD_HASH` | yes* | Alternative to `APP_PASSWORD`: bcrypt hash of your password (`pnpm hash-password`). |
+| `APP_PASSWORD_HASH_B64` | yes* | The same hash, base64-encoded (also printed by `pnpm hash-password`), for a host that mangles `$` in environment variables. Wins over `APP_PASSWORD_HASH`. |
 | `SNAPSHOT_TOKEN` | yes | Bearer token the cron uses, 32 characters or more. |
 | `ETH_RPC_URL` | no | Comma-separated JSON-RPC URLs for Ethereum. Replaces the public defaults. |
 | `BASE_RPC_URL` | no | Same, for Base. |
@@ -151,19 +158,19 @@ In cPanel, **Configurer une application Node.js**, then **Create Application**:
 - Application URL: your subdomain
 - Startup file: `server.js`
 
-Add the environment variables `DATABASE_URL`, `APP_PASSWORD_HASH_B64` and `SNAPSHOT_TOKEN` (plus the optional ones you want). There is no `.env` file in production, so variables come from this screen. Save, then restart the application after any change.
+Add the environment variables `DATABASE_URL`, `APP_PASSWORD` and `SNAPSHOT_TOKEN` (plus the optional ones you want). There is no `.env` file in production, so variables come from this screen. Save, then restart the application after any change.
 
-Use `APP_PASSWORD_HASH_B64`, not `APP_PASSWORD_HASH`, here: a bcrypt hash contains `$` characters, and cPanel can pass the value through a shell that strips `$2b` and `$12`, leaving an invalid hash even though you pasted a valid one. `pnpm hash-password` prints both forms. The base64 form has no special characters.
-
-Generate the hash on your own machine with `pnpm hash-password`. Do not type the password into the server.
+Prefer `APP_PASSWORD` over a bcrypt hash here: a hash contains `$` characters, and cPanel can pass the value through a shell that strips `$2b` and `$12`, leaving an invalid hash even though you pasted a valid one. If you do want a hash, use `APP_PASSWORD_HASH_B64` (printed by `pnpm hash-password`), which has no special characters. Remove any old `APP_PASSWORD_HASH` entry.
 
 ### 6. Run the migrations
 
 On the same screen, click **Run JS script** and choose `migrate:prod`. Run it again after every deployment that adds a migration. Do not click **Run NPM Install**: `node_modules/` is already in the artifact.
 
+`migrate:prod` starts `node-pg-migrate` through `node`, because the artifact zip loses file permissions and `node_modules/.bin/node-pg-migrate` would fail with "permission denied".
+
 ### If the site shows a generic error page
 
-Passenger hides the app's output, so `server.js` writes its own log to `wealth/server/logs/app.log` (override with a `LOG_FILE` variable). Open it in cPanel's File Manager. The first line says which Node version is running and which of `DATABASE_URL`, `APP_PASSWORD_HASH` and `SNAPSHOT_TOKEN` are set, and the lines after it give the exact reason the app stopped, for example a missing variable, an invalid bcrypt hash, or `database connection FAILED`. If the file does not exist at all, Passenger never ran `server.js`: check the application root (`wealth/server`) and the startup file (`server.js`) in **Configurer une application Node.js**. The file is rotated at 5 MB and is never served to visitors.
+Passenger hides the app's output, so `server.js` writes its own log to `wealth/server/logs/app.log` (override with a `LOG_FILE` variable). Open it in cPanel's File Manager. The first line says which Node version is running and which of `DATABASE_URL`, `APP_PASSWORD`, `APP_PASSWORD_HASH` and `SNAPSHOT_TOKEN` are set, and the lines after it give the exact reason the app stopped, for example a missing variable, an invalid bcrypt hash, or `database connection FAILED`. If the file does not exist at all, Passenger never ran `server.js`: check the application root (`wealth/server`) and the startup file (`server.js`) in **Configurer une application Node.js**. The file is rotated at 5 MB and is never served to visitors.
 
 ### 7. Schedule the daily snapshot
 

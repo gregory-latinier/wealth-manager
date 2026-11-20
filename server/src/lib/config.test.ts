@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs'
-import { getPasswordHash } from './config'
+import { assertConfig, getPasswordHash, verifyPassword } from './config'
 
 const hash = bcrypt.hashSync('a-long-test-password', 4)
 const b64 = (s: string) => Buffer.from(s).toString('base64')
@@ -52,5 +52,51 @@ describe('getPasswordHash', () => {
   it('fails when nothing is set', () => {
     set()
     expect(() => getPasswordHash()).toThrow(/APP_PASSWORD_HASH is not set/)
+  })
+})
+
+describe('APP_PASSWORD (plain text)', () => {
+  const saved = { plain: process.env.APP_PASSWORD, hash: process.env.APP_PASSWORD_HASH, encoded: process.env.APP_PASSWORD_HASH_B64 }
+
+  afterEach(() => {
+    process.env.APP_PASSWORD = saved.plain
+    process.env.APP_PASSWORD_HASH = saved.hash
+    if (saved.encoded === undefined) delete process.env.APP_PASSWORD_HASH_B64
+    else process.env.APP_PASSWORD_HASH_B64 = saved.encoded
+  })
+
+  it('accepts the right password and rejects others', async () => {
+    process.env.APP_PASSWORD = 'my-plain-password'
+    expect(await verifyPassword('my-plain-password')).toBe(true)
+    expect(await verifyPassword('my-plain-passwor')).toBe(false)
+    expect(await verifyPassword('')).toBe(false)
+    expect(await verifyPassword('x'.repeat(200))).toBe(false)
+  })
+
+  it('starts without any hash, and wins over a hash a host has mangled', () => {
+    process.env.APP_PASSWORD = 'my-plain-password'
+    delete process.env.APP_PASSWORD_HASH
+    delete process.env.APP_PASSWORD_HASH_B64
+    expect(() => assertConfig()).not.toThrow()
+    process.env.APP_PASSWORD_HASH = 'mangled'
+    expect(() => assertConfig()).not.toThrow()
+  })
+
+  it('ignores the hash while APP_PASSWORD is set', async () => {
+    process.env.APP_PASSWORD = 'my-plain-password'
+    process.env.APP_PASSWORD_HASH = hash
+    expect(await verifyPassword('a-long-test-password')).toBe(false)
+    expect(await verifyPassword('my-plain-password')).toBe(true)
+  })
+
+  it('falls back to the hash when APP_PASSWORD is empty', async () => {
+    process.env.APP_PASSWORD = ''
+    process.env.APP_PASSWORD_HASH = hash
+    expect(await verifyPassword('a-long-test-password')).toBe(true)
+  })
+
+  it('refuses a password that is too short', () => {
+    process.env.APP_PASSWORD = 'short'
+    expect(() => assertConfig()).toThrow(/APP_PASSWORD is too short/)
   })
 })

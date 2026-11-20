@@ -61,7 +61,7 @@ const present = (name) => (process.env[name] && process.env[name].trim() ? 'set'
 writeLog(
   'info',
   `starting: node ${process.version}, cwd ${process.cwd()}, PORT=${process.env.PORT || '(none)'}, ` +
-    `DATABASE_URL ${present('DATABASE_URL')}, APP_PASSWORD_HASH ${present('APP_PASSWORD_HASH')}, SNAPSHOT_TOKEN ${present('SNAPSHOT_TOKEN')}, ` +
+    `DATABASE_URL ${present('DATABASE_URL')}, APP_PASSWORD ${present('APP_PASSWORD')}, APP_PASSWORD_HASH ${present('APP_PASSWORD_HASH')}, SNAPSHOT_TOKEN ${present('SNAPSHOT_TOKEN')}, ` +
     `client build ${fs.existsSync(path.join(__dirname, '../client/dist/index.html')) ? 'found' : 'NOT FOUND'}`
 )
 

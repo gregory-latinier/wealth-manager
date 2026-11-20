@@ -1,6 +1,5 @@
 import { FastifyPluginAsync } from 'fastify'
-import bcrypt from 'bcryptjs'
-import { getPasswordHash } from '../lib/config'
+import { verifyPassword } from '../lib/config'
 import {
   SESSION_COOKIE,
   SESSION_MAX_AGE_SECONDS,
@@ -31,7 +30,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { password } = request.body as { password: string }
 
-      const valid = await bcrypt.compare(password, getPasswordHash())
+      const valid = await verifyPassword(password)
       if (!valid) {
         return reply.status(401).send({ error: 'Invalid password' })
       }
