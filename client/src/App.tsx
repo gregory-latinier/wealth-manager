@@ -3,6 +3,7 @@ import { AuthProvider, RequireAuth } from './lib/auth'
 import Crypto from './pages/admin/Crypto'
 import Exchanges from './pages/admin/Exchanges'
 import Smardex from './pages/admin/Smardex'
+import Staking from './pages/admin/Staking'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
 
@@ -43,7 +44,15 @@ export default function App() {
             </RequireAuth>
           }
         />
-        <Route path="*"element={<Navigate to="/" replace />} />
+        <Route
+          path="/admin/staking"
+          element={
+            <RequireAuth>
+              <Staking />
+            </RequireAuth>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthProvider>
   )

@@ -2,6 +2,7 @@ import { createDefaultCryptoSource } from './crypto/index'
 import { createDefaultExchangeSource } from './exchange/index'
 import { registerSource } from './registry'
 import { createDefaultSmardexSource } from './smardex/index'
+import { createDefaultStakingSource } from './staking/index'
 
 let done = false
 
@@ -12,4 +13,5 @@ export function registerDefaultSources(): void {
   registerSource(createDefaultCryptoSource())
   registerSource(createDefaultExchangeSource())
   registerSource(createDefaultSmardexSource())
+  registerSource(createDefaultStakingSource())
 }

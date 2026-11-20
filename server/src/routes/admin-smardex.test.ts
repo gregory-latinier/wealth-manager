@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { buildApp } from '../index'
-import { pool, query } from '../db/index'import { SESSION_COOKIE } from '../lib/auth'
+import { pool, query } from '../db/index'
+import { SESSION_COOKIE } from '../lib/auth'
 import { activeAddresses } from '../sources/smardex/wallets'
 
 const A = '0x806bE92538e21D63EfF9681F5b96dd4f52BFFF31'

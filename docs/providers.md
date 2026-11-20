@@ -159,3 +159,24 @@ Gotchas found live:
 Failure behaviour: a failed scan does not hide earlier finds (the cache is still valued) and is reported as a failure on `<address>:scan`, which makes the snapshot partial instead of silently complete. A failed contract read or missing price fails that position, which the engine carries forward as stale. Nothing is ever valued at 0 because a call failed.
 
 Not covered: pending LongFarming rewards (SDEX), other Smardex markets, and USDN or the liquidity-provider side. Only long positions on the WSTETH_USDN market are read.
+
+## Update: staked tokens (Nov 2026)
+
+Source type `staking` (`server/src/sources/staking/`). The positions are the `StakingPosition` table, managed on the Staking page (`/api/admin/staking/positions`). The first use is SDEX staked on everything.inc to earn EV. That site is a client-rendered app with no public API, so nothing can be read from it and the staked amount is typed in by the owner.
+
+- **Symbol:** read from the ERC-20 contract over the Ethereum RPC when the stake is added, and stored. The contract cannot be changed afterwards, only the platform name and the amount.
+- **Price:** `createPriceProvider(createCoinGecko())`, which is DefiLlama for tokens. SDEX (`0x5de8ab7e27f6e7a1fff3e5b337584aa43961beef`, 18 decimals) is priced by DefiLlama.
+- **Refs:** `<position id>:<SYMBOL>`. The id never changes, so renaming the platform keeps the carry-forward history.
+- **Failure behaviour:** one price lookup serves all stakes. If it fails, or a token has no price, those stakes are reported as failures and the engine carries their last value forward as stale. Nothing is valued at 0 because a lookup failed. A stake added for a token with no price is saved and the page warns about it.
+- **Uniqueness:** one stake per platform and token. To change the quantity, edit the amount.
+
+### Claimable rewards (EV on Everything)
+
+A position can carry `rewardsContract` and `rewardsWallet` (migration 012, both set or both null). At each snapshot the source makes two `eth_call`s to the staking contract: `getEvToken()` for the reward token and `getClaimableRewards(address)` for what the wallet can claim now. The symbol and decimals of the reward token come from the token contract, and its price from DefiLlama in the same lookup as the staked token.
+
+- **Contract:** Everything staking is the ERC1967 proxy `0x25b5D0216D28b3B348738326C514f7d1D4f8Ee2f` (implementation `Staking`, verified on Blockscout). It also exposes `getUserInfo(address)` (a flat struct `rewardDebt, stakedAmount, accReward, claimedReward`, so `stakedAmount` is the second word), `getPendingRewards(address)` and `getTotalStakedAmount()`. The EV token is `0xe7e7e741c23a4767831a56a8c99f522c5ac1e7e7` (18 decimals, DefiLlama prices it).
+- **Which number counts:** `getClaimableRewards`, which is what a `claim()` pays now. `getPendingRewards` is larger (about 9.0M EV against 0.6M when this was written) and the contract does not say when the rest becomes claimable, so it is not counted.
+- **Refs:** the rewards line is `<position id>:rewards`, with no symbol, so a failed token lookup still matches the previous line and carries it forward. The stake keeps `<id>:<SYMBOL>`.
+- **Failure behaviour:** a revert, a bad answer, a missing reward token symbol or a missing price fails `<id>:rewards` only. The stake is still valued and the rewards keep their last value, marked stale. A claimable amount of exactly 0 is real and produces no line.
+- **Validation:** when rewards are switched on, the contract must answer both calls with one 32-byte word, or the request is refused with 400 and nothing is saved.
+- **Not covered:** the reward value is a snapshot of one moment. Claiming moves it into the wallet, where it is counted once the token is on the Crypto page.
