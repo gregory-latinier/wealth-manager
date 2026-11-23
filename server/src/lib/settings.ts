@@ -19,7 +19,7 @@ export async function deleteSetting(key: string): Promise<void> {
 }
 
 /** Every page of the app that can be hidden from the menu. The dashboard is not in the list: it is always shown. */
-export const SECTIONS = ['crypto', 'exchanges', 'smardex', 'staking', 'aave', 'bank', 'stocks', 'crowdlending', 'mt5'] as const
+export const SECTIONS = ['crypto', 'exchanges', 'smardex', 'staking', 'aave', 'bank', 'stocks', 'crowdlending', 'mt5', 'gomining'] as const
 export type Section = (typeof SECTIONS)[number]
 
 const HIDDEN_KEY = 'ui.hiddenSections'

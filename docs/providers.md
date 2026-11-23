@@ -235,6 +235,16 @@ Source type `mt5` (`server/src/sources/mt5/`). The accounts to count are the `Mt
 - **Failure behaviour:** a row whose `status` is not `ok` (the collector writes a balance of 0 for it), with no numeric balance, or with an `updatedAt` older than 48 hours fails only that account, which is carried forward as stale. A feed that cannot be read (timeout, HTTP error, not JSON, no `allAccounts`) fails every tracked account the same way. An account missing from the feed fails too. A real balance of 0 stays a 0 line.
 - **Not covered:** accounts in other currencies, equity and open positions, per-trade history, multiple feeds.
 
+## Update: GoMining (Nov 2026)
+
+Source type `gomining` (`server/src/sources/gomining/`). GoMining has no documented public API: miners and wallet balances are off-chain in the owner's account, so everything is typed in and no GoMining credential is stored. Managed on the GoMining page (`/api/admin/gomining`).
+
+- **Miners:** the `GominingMiner` table (migration 019: name, TH, active). Line `<miner id>:TH`, symbol `TH`, amount = TH, price = the value of one TH. The id never changes, so renaming or upgrading a miner keeps its history.
+- **Value of 1 TH:** `gomining.thPrice` and `gomining.thCurrency` rows of the `Setting` table. EUR is converted with `SnapshotContext.usdPerEur`. It is a value the owner sets, there is no market feed for it.
+- **Wallet:** `gomining.btc` and `gomining.gmt` rows of `Setting`, as plain decimals (8 decimals). Lines `wallet:BTC` (price from `getNativePrices().btc`) and `wallet:GMT` (price from `getTokenPrices('eth', [0x7ddc52c4de30e94be3a6a0a2b259b2850f421989])`). A balance of 0 gives no line and no price request.
+- **Failure behaviour:** no value per TH, EUR without a rate, a BTC price lookup that throws, or a GMT that no provider prices each fail only the lines concerned, which are carried forward as stale. Nothing is ever valued at 0.
+- **Not covered:** other wallet assets (USDT, ETH, BNB...), reading GoMining, rewards that accrue between two edits, a per-miner price.
+
 ## Update: settings and menu (Nov 2026)
 
 `GET/PATCH /api/admin/settings` stores `hiddenSections`, the pages the owner hid from the menu, as JSON under the `ui.hiddenSections` row of the `Setting` table. Unknown names in a hand-edited value are ignored. It only affects the menu: a hidden page still works and what it tracks is still in every snapshot.
