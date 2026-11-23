@@ -10,6 +10,7 @@ import {
   DialogContentText,
   DialogTitle,
   IconButton,
+  MenuItem,
   Paper,
   Stack,
   Switch,
@@ -30,7 +31,7 @@ import EditIcon from '@mui/icons-material/EditOutlined'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import AdminNav from '../../components/AdminNav'
 import { ApiError } from '../../lib/api'
-import { crowdlendingApi, type Loan } from '../../lib/crowdlending'
+import { crowdlendingApi, type Loan, type LoanCurrency } from '../../lib/crowdlending'
 import { formatMoney } from '../../lib/crypto'
 
 const errorText = (err: unknown) => (err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
@@ -81,6 +82,7 @@ function DueCell({ loan }: { loan: Loan }) {
 function AddDialog({ open, onClose, onAdded }: { open: boolean; onClose: () => void; onAdded: () => void }) {
   const [platform, setPlatform] = useState('')
   const [name, setName] = useState('')
+  const [currency, setCurrency] = useState<LoanCurrency>('EUR')
   const [lent, setLent] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -89,6 +91,7 @@ function AddDialog({ open, onClose, onAdded }: { open: boolean; onClose: () => v
   const close = () => {
     setPlatform('')
     setName('')
+    setCurrency('EUR')
     setLent('')
     setDueDate('')
     setError(null)
@@ -100,7 +103,7 @@ function AddDialog({ open, onClose, onAdded }: { open: boolean; onClose: () => v
     setBusy(true)
     setError(null)
     try {
-      await crowdlendingApi.add({ platform: platform.trim(), name: name.trim(), lent: lent.trim(), dueDate })
+      await crowdlendingApi.add({ platform: platform.trim(), name: name.trim(), currency, lent: lent.trim(), dueDate })
       onAdded()
       close()
     } catch (err) {
@@ -129,7 +132,17 @@ function AddDialog({ open, onClose, onAdded }: { open: boolean; onClose: () => v
           />
           <TextField label="Project" value={name} onChange={(e) => setName(e.target.value)} required slotProps={{ htmlInput: { maxLength: 100 } }} helperText="The project you financed." />
           <TextField
-            label="Amount lent (EUR)"
+            select
+            label="Currency"
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value as LoanCurrency)}
+            helperText="Cannot be changed later. A EUR loan is converted to USD at the daily rate."
+          >
+            <MenuItem value="EUR">EUR</MenuItem>
+            <MenuItem value="USD">USD</MenuItem>
+          </TextField>
+          <TextField
+            label={`Amount lent (${currency})`}
             value={lent}
             onChange={(e) => setLent(e.target.value)}
             required
@@ -204,7 +217,7 @@ function EditDialog({ loan, onClose, onSaved }: { loan: Loan | null; onClose: ()
         <Stack spacing={2} sx={{ pt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <TextField
-            label="Still to be refunded (EUR)"
+            label={`Still to be refunded (${loan?.currency ?? ''})`}
             value={outstanding}
             onChange={(e) => setOutstanding(e.target.value)}
             required
@@ -215,7 +228,7 @@ function EditDialog({ loan, onClose, onSaved }: { loan: Loan | null; onClose: ()
             helperText={
               badOutstanding
                 ? `A number from 0 to ${loan?.lent}, with at most 2 decimals`
-                : `Lent: ${loan ? formatMoney(loan.lent, 'EUR') : ''}. Lower it when you are refunded, set 0 when it is fully repaid.`
+                : `Lent: ${loan ? formatMoney(loan.lent, loan.currency) : ''}. Lower it when you are refunded, set 0 when it is fully repaid.`
             }
           />
           <TextField
@@ -324,7 +337,12 @@ export default function Crowdlending() {
 
   // Loans still waiting for a refund that is past its date, so they are called out above the table.
   const overdue = (loans ?? []).filter((l) => l.active && Number(l.outstanding) > 0 && daysUntil(l.dueDate) < 0)
-  const totalOutstanding = (loans ?? []).filter((l) => l.active).reduce((sum, l) => sum + Number(l.outstanding), 0)
+  // One total per currency: a EUR and a USD amount do not add up.
+  const totals = (['EUR', 'USD'] as const)
+    .map((c) => ({ c, sum: (loans ?? []).filter((l) => l.active && l.currency === c).reduce((sum, l) => sum + Number(l.outstanding), 0) }))
+    .filter((t) => t.sum > 0)
+    .map((t) => formatMoney(String(t.sum), t.c))
+    .join(' and ')
 
   return (
     <AdminNav>
@@ -336,7 +354,7 @@ export default function Crowdlending() {
           <Typography variant="body2" color="text.secondary">
             Loans you made on platforms such as 8lends or La Premiere Brique. Only what is still to be refunded counts in your net worth. Nothing is read from the
             platforms: update a loan when you are refunded.
-            {loans && loans.length > 0 && ` Still to be refunded: ${formatMoney(String(totalOutstanding), 'EUR')}.`}
+            {totals && ` Still to be refunded: ${totals}.`}
           </Typography>
         </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAdding(true)}>
@@ -404,10 +422,10 @@ export default function Crowdlending() {
                     </Typography>
                   </TableCell>
                   <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {formatMoney(l.lent, 'EUR')}
+                    {formatMoney(l.lent, l.currency)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-                    {formatMoney(l.outstanding, 'EUR')}
+                    {formatMoney(l.outstanding, l.currency)}
                   </TableCell>
                   <TableCell>
                     <DueCell loan={l} />

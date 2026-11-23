@@ -134,9 +134,51 @@ If the price or the rate cannot be read, the previous value of that holding is k
 
 ### Track crowdlending loans
 
-Loans on platforms such as 8lends or La Premiere Brique are typed in, nothing is read from the platforms. Run `pnpm db:migrate` once (creates `CrowdlendingLoan`), then open **Crowdlending** in the app and choose **Add loan** with the platform, the project, the amount lent in EUR and the **expected refund date**.
+Loans on platforms such as 8lends or La Premiere Brique are typed in, nothing is read from the platforms. Run `pnpm db:migrate` once (creates `CrowdlendingLoan`), then open **Crowdlending** in the app and choose **Add loan** with the platform, the project, the currency (EUR or USD), the amount lent and the **expected refund date**. The currency cannot be changed afterwards.
 
-Only what is still to be refunded counts in your net worth, converted at the daily rate like any EUR amount. The page lists the loans by refund date and shows how far each one is: a loan past its date is red and called out in a banner, one due within 30 days is orange. When a refund arrives, edit the loan and lower the amount still to be refunded, or set it to 0 once fully repaid (it stays in the list as repaid, and the history shows the drop). If a project is extended, move its date. The amount lent never changes. Interest is not tracked: when the platform pays it, it is cash in your bank account.
+Only what is still to be refunded counts in your net worth, converted at the daily rate if it is in EUR, and counted as is if it is in USD. The page lists the loans by refund date and shows how far each one is: a loan past its date is red and called out in a banner, one due within 30 days is orange. When a refund arrives, edit the loan and lower the amount still to be refunded, or set it to 0 once fully repaid (it stays in the list as repaid, and the history shows the drop). If a project is extended, move its date. The amount lent never changes. Interest is not tracked: when the platform pays it, it is cash in your bank account.
+
+### Track MT5 trading accounts
+
+MT5 balances are not read from MetaTrader itself: the portfolio reads a JSON snapshot that your own accounts-monitoring collector serves. No MT5 password or investor password is ever stored here.
+
+#### Expected snapshot format
+
+The URL must answer a plain `GET` with JSON and no authentication (the portfolio sends no credentials), so serve it from a place only you know, or behind a path you do not publish. Only the `allAccounts` list is read, every other field is ignored:
+
+```json
+{
+  "allAccounts": [
+    {
+      "account": "37363418",
+      "name": "Pips Grinder Cent Copy x30",
+      "broker": "RoboForex",
+      "balance": 9821.35,
+      "status": "ok",
+      "updatedAt": "2026-11-23 16:33:23+01"
+    }
+  ]
+}
+```
+
+| Field | Required | Meaning |
+|---|---|---|
+| `account` | yes | The MT5 login, a string or a number. It identifies the account, entries without it are skipped. |
+| `balance` | yes | The balance as a JSON **number** (a string such as `"9821.35"` is refused), in the currency of the account. For a cent account, send the value already divided to real units. |
+| `status` | yes | `"ok"` when the collector read the account. Any other value, for example `"error: terminal not connected"`, makes the account fail: it keeps its previous value marked stale, and the page shows the reason. |
+| `updatedAt` | yes | When the collector last read the account, with a time zone offset (`2026-11-23T15:33:23Z` or `2026-11-23 16:33:23+01`). A value older than 48 hours counts as stale data and fails the account like an error status. |
+| `name` | no | Label shown on the page. Defaults to the login. |
+| `broker` | no | Shown under the name. |
+
+The snapshot does not carry the currency. You choose EUR or USD for each account on the MT5 page. The balance is what counts, not the equity, so `equity`, `floatingPnL`, `openTrades` and the like are ignored.
+
+Run `pnpm db:migrate` once (creates `Mt5Account`), open **MT5**, and paste the URL of your snapshot into **Monitoring feed URL**. There is no default: everyone runs their own collector. The URL can also come from the `MT5_FEED_URL` environment variable, which a URL saved on the page overrides. The page then lists every account of the feed. The feed does not say which currency an account is in, so choose EUR or USD for each account and press **Count**.
+
+The **balance** counts, not the equity, so open trades are not included. The snapshot reads the feed once a day. An account whose row is in error, or whose last update is more than 48 hours old, keeps its previous value marked stale instead of dropping to 0, and so does every account when the feed cannot be reached. A EUR account is converted at the daily rate.
+
+### Choose the pages in the menu
+
+Not everyone tracks everything. The gear icon next to the log out button opens **Settings**, where each page can be hidden from the menu or shown again. The choice is saved on the server, so every device shows the same menu. Hiding a page only removes it from the menu: whatever it tracks is still counted in your net worth, and the page stays reachable at its address.
 
 ### Record a snapshot by hand
 
@@ -159,6 +201,7 @@ pnpm snapshot:run
 | `BASE_RPC_URL` | no | Same, for Base. |
 | `BSC_RPC_URL` | no | Same, for BNB Chain. |
 | `COINGECKO_API_KEY` | no | Raises the CoinGecko rate limit. |
+| `MT5_FEED_URL` | no | URL of your accounts-monitoring snapshot, used when none is saved on the MT5 page. |
 | `EXCHANGE_KEY_SECRET` | for exchanges | 32 characters or more (`openssl rand -hex 32`). Encrypts the exchange API keys stored in the database. **Keep it**: if it changes or is lost, saved keys can no longer be read and must be entered again. |
 | `PORT` | no | Server port, default `3001`. Passenger sets its own. |
 

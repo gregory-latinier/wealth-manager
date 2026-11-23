@@ -1,13 +1,18 @@
 import { query } from '../../db/index'
 import { generateId } from '../../lib/auth'
 
+export const CURRENCIES = ['EUR', 'USD'] as const
+export type LoanCurrency = (typeof CURRENCIES)[number]
+
 export interface Loan {
   id: string
   platform: string
   name: string
-  /** EUR lent, fixed-point string with 2 decimals. */
+  /** Currency of the loan. Never changes. */
+  currency: LoanCurrency
+  /** Amount lent in `currency`, fixed-point string with 2 decimals. */
   lent: string
-  /** EUR still to be refunded, fixed-point string with 2 decimals. 0 once repaid. */
+  /** Amount still to be refunded in `currency`, fixed-point string with 2 decimals. 0 once repaid. */
   outstanding: string
   /** Expected refund date, `YYYY-MM-DD`. */
   dueDate: string
@@ -17,7 +22,7 @@ export interface Loan {
 
 export const MAX_TEXT_LENGTH = 100
 
-const COLUMNS = `"id", "platform", "name", "lent"::text AS "lent", "outstanding"::text AS "outstanding", "dueDate"::text AS "dueDate", "active", "createdAt"`
+const COLUMNS = `"id", "platform", "name", "currency", "lent"::text AS "lent", "outstanding"::text AS "outstanding", "dueDate"::text AS "dueDate", "active", "createdAt"`
 
 export async function listLoans(): Promise<Loan[]> {
   const res = await query<Loan>(`SELECT ${COLUMNS} FROM "CrowdlendingLoan" ORDER BY "dueDate", "createdAt", "id"`)
@@ -35,15 +40,15 @@ export async function activeLoans(): Promise<Loan[]> {
   return res.rows
 }
 
-export async function createLoan(input: { platform: string; name: string; lent: string; outstanding: string; dueDate: string }): Promise<Loan> {
+export async function createLoan(input: { platform: string; name: string; currency: LoanCurrency; lent: string; outstanding: string; dueDate: string }): Promise<Loan> {
   const res = await query<Loan>(
-    `INSERT INTO "CrowdlendingLoan" ("id", "platform", "name", "lent", "outstanding", "dueDate") VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${COLUMNS}`,
-    [generateId('cl'), input.platform, input.name, input.lent, input.outstanding, input.dueDate]
+    `INSERT INTO "CrowdlendingLoan" ("id", "platform", "name", "currency", "lent", "outstanding", "dueDate") VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING ${COLUMNS}`,
+    [generateId('cl'), input.platform, input.name, input.currency, input.lent, input.outstanding, input.dueDate]
   )
   return res.rows[0]!
 }
 
-/** The amount lent is not editable: it is a fact of the past. A repayment lowers the outstanding amount. */
+/** The currency and the amount lent are not editable: it is a fact of the past. A repayment lowers the outstanding amount. */
 export async function updateLoan(
   id: string,
   patch: { platform?: string; name?: string; outstanding?: string; dueDate?: string; active?: boolean }
@@ -78,7 +83,7 @@ export interface LoanLastValue {
   stale: boolean
 }
 
-/** Value of each loan in the latest snapshot, keyed by loan id. Lines are `<id>:EUR`. */
+/** Value of each loan in the latest snapshot, keyed by loan id. Lines are `<id>:<CURRENCY>`. */
 export async function lastValues(): Promise<Map<string, LoanLastValue>> {
   const res = await query<{ id: string; usd: string; eur: string; date: string; stale: boolean }>(
     `SELECT split_part(l."sourceRef", ':', 1) AS "id",

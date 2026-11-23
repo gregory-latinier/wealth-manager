@@ -216,10 +216,25 @@ Source type `stocks` (`server/src/sources/stocks/`). The holdings are the `Stock
 
 ## Update: crowdlending (Nov 2026)
 
-Source type `crowdlending` (`server/src/sources/crowdlending/`). The loans are the `CrowdlendingLoan` table (migration 016), managed on the Crowdlending page (`/api/admin/crowdlending/loans`). There is no provider: 8lends and La Premiere Brique have no public API, so the owner types the figures, like bank accounts.
+Source type `crowdlending` (`server/src/sources/crowdlending/`). The loans are the `CrowdlendingLoan` table (migrations 016 and 017), managed on the Crowdlending page (`/api/admin/crowdlending/loans`). There is no provider: 8lends and La Premiere Brique have no public API, so the owner types the figures, like bank accounts.
 
-- **Per loan:** platform, project name, `lent` (fixed at creation), `outstanding` (what is still to be refunded) and `dueDate` (expected refund, a plain `date`).
-- **Valuation:** only `outstanding` counts, in EUR. Lines are `<loan id>:EUR`, symbol EUR, amount = outstanding, price = the engine's fresh USD per EUR (same mechanism as the bank source). With no rate the loan fails and is carried forward as stale, never valued at 0.
+- **Per loan:** platform, project name, `currency` (EUR or USD, fixed at creation, existing loans were EUR), `lent` (fixed at creation), `outstanding` (what is still to be refunded) and `dueDate` (expected refund, a plain `date`).
+- **Valuation:** only `outstanding` counts, in the currency of the loan. Lines are `<loan id>:<CURRENCY>`, symbol is the currency, amount = outstanding. A USD loan has price 1. A EUR loan has price = the engine's fresh USD per EUR (same mechanism as the bank source), and with no rate it fails and is carried forward as stale, never valued at 0.
 - **Repayment:** the owner lowers `outstanding`. At 0 the line stays at 0, so the history shows the refund. `outstanding` cannot exceed `lent`.
 - **Due dates:** the page marks a loan overdue when `dueDate` is before today and `outstanding > 0`, and "soon" within 30 days. A reminder by email or push is not built.
-- **Not covered:** interest (counted as cash when paid), other currencies, automatic reading of the platforms, notifications.
+- **Not covered:** interest (counted as cash when paid), currencies other than EUR and USD, automatic reading of the platforms, notifications.
+
+## Update: MT5 accounts (Nov 2026)
+
+Source type `mt5` (`server/src/sources/mt5/`). The accounts to count are the `Mt5Account` table (migration 018: login, currency, active), managed on the MT5 page (`/api/admin/mt5/accounts`). The balances are not read from MetaTrader: the source GETs the snapshot served by the owner's accounts-monitoring collector, so no MT5 credential ever reaches this app.
+
+- **Feed URL:** the `mt5.feedUrl` row of the `Setting` table, set on the MT5 page (`PUT /api/admin/mt5/settings`, http or https only, no user name or password in it), else the `MT5_FEED_URL` environment variable. There is no default, because every owner runs their own collector. Without a URL the page asks for one and the source reports every tracked account as failed.
+- **Expected payload:** `{ "allAccounts": [{ "account": "37363418", "name": "...", "broker": "...", "balance": 9821.35, "status": "ok", "updatedAt": "2026-11-23 16:33:23+01" }] }`. Other fields (equity, drawdown, open trades) are ignored.
+- **Currency:** the feed has none, so the owner picks EUR or USD per account. Lines are `<login>:<CURRENCY>`, symbol is the currency, amount is the balance. USD has price 1, EUR has price = `SnapshotContext.usdPerEur`. Changing the currency of an account starts a new line, the old one stays in the history.
+- **Balance, not equity:** floating profit and loss of open trades is not counted.
+- **Failure behaviour:** a row whose `status` is not `ok` (the collector writes a balance of 0 for it), with no numeric balance, or with an `updatedAt` older than 48 hours fails only that account, which is carried forward as stale. A feed that cannot be read (timeout, HTTP error, not JSON, no `allAccounts`) fails every tracked account the same way. An account missing from the feed fails too. A real balance of 0 stays a 0 line.
+- **Not covered:** accounts in other currencies, equity and open positions, per-trade history, multiple feeds.
+
+## Update: settings and menu (Nov 2026)
+
+`GET/PATCH /api/admin/settings` stores `hiddenSections`, the pages the owner hid from the menu, as JSON under the `ui.hiddenSections` row of the `Setting` table. Unknown names in a hand-edited value are ignored. It only affects the menu: a hidden page still works and what it tracks is still in every snapshot.

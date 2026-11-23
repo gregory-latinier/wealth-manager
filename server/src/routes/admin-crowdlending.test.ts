@@ -31,7 +31,7 @@ describe('admin crowdlending', () => {
   })
 
   const add = (payload: unknown) => app.inject({ method: 'POST', url: '/api/admin/crowdlending/loans', payload: payload as object, cookies, remoteAddress })
-  const main = { platform: '8lends', name: 'Residence Lyon', lent: '500', dueDate: '2027-03-15' }
+  const main = { platform: '8lends', name: 'Residence Lyon', currency: 'EUR', lent: '500', dueDate: '2027-03-15' }
   const patchOf = (id: string) => (payload: object) => app.inject({ method: 'PATCH', url: `/api/admin/crowdlending/loans/${id}`, payload, cookies, remoteAddress })
 
   it('requires a session on every route', async () => {
@@ -52,7 +52,11 @@ describe('admin crowdlending', () => {
   it('creates a loan with nothing repaid yet, trimming the text and keeping the date as typed', async () => {
     const res = await add({ ...main, platform: ' La Premiere Brique ', name: ' Immeuble Nantes ', lent: '1250.50' })
     expect(res.statusCode).toBe(201)
-    expect(res.json()).toMatchObject({ platform: 'La Premiere Brique', name: 'Immeuble Nantes', lent: '1250.50', outstanding: '1250.50', dueDate: '2027-03-15', active: true })
+    expect(res.json()).toMatchObject({ platform: 'La Premiere Brique', name: 'Immeuble Nantes', currency: 'EUR', lent: '1250.50', outstanding: '1250.50', dueDate: '2027-03-15', active: true })
+  })
+
+  it('accepts a USD loan', async () => {
+    expect((await add({ ...main, currency: 'USD' })).json()).toMatchObject({ currency: 'USD', lent: '500.00', outstanding: '500.00' })
   })
 
   it('accepts a loan that is already partly repaid', async () => {
@@ -69,7 +73,9 @@ describe('admin crowdlending', () => {
     ['a date in the wrong format', { dueDate: '15/03/2027' }],
     ['a blank platform', { platform: '   ' }],
     ['a blank name', { name: '   ' }],
-    ['an unknown field', { currency: 'USD' }],
+    ['a currency that is not supported', { currency: 'GBP' }],
+    ['a missing currency', { currency: undefined }],
+    ['an unknown field', { rate: '1.1' }],
   ])('rejects %s', async (_name, over) => {
     expect((await add({ ...main, ...over })).statusCode).toBe(400)
     expect((await query('SELECT 1 FROM "CrowdlendingLoan"')).rowCount).toBe(0)
@@ -105,8 +111,9 @@ describe('admin crowdlending', () => {
     expect(await activeLoans()).toHaveLength(1)
   })
 
-  it('refuses to change the amount lent, an outstanding above it, a bad date and an empty patch', async () => {
+  it('refuses to change the currency, the amount lent, an outstanding above it, a bad date and an empty patch', async () => {
     const patch = patchOf((await add(main)).json().id)
+    expect((await patch({ currency: 'USD' })).statusCode).toBe(400)
     expect((await patch({ lent: '900' })).statusCode).toBe(400)
     expect((await patch({ outstanding: '500.01' })).statusCode).toBe(400)
     expect((await patch({ outstanding: '-1' })).statusCode).toBe(400)
