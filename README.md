@@ -14,7 +14,7 @@ Built to be self-hosted on cheap shared hosting ([o2switch](https://www.o2switch
 - The dashboard shows the total, the 1-day and 7-day change, the evolution chart, and the holdings of any day.
 - If a provider fails, the last known value is carried forward and marked **stale**, so one outage never leaves a hole in the chart.
 
-Out of scope for v1: backfilling history, trades, taxes and P&L, other chains, NFTs, BTC xpubs. Other source types (forex, bank, stocks) are meant to plug in later as new `SourceType`s.
+Out of scope for v1: backfilling history, trades, taxes and P&L, other chains, NFTs, BTC xpubs. Another source type (forex) is meant to plug in later as a new `SourceType`.
 
 ## Stack
 
@@ -115,6 +115,28 @@ Aave v4 (the version at pro.aave.com) keeps a position inside a Spoke contract, 
 At each snapshot the app asks the Spoke what the wallet has supplied and what it owes on every reserve, interest included. Each supplied asset is a positive line (for example WETH) and each borrowed asset is a **negative** line (for example USDC), so the borrowing is subtracted from your net worth. Both are priced like any other token. The page also shows the position live, with the health factor (below 1 it can be liquidated). On the dashboard a loan is not drawn in the donut: the donut shows what you hold and notes the amount borrowed.
 
 If the Spoke or a price cannot be read, the previous lines of that wallet are kept and marked stale, the debt included, so an outage never makes the debt vanish and your net worth jump. Only Ethereum mainnet and the Spoke `0x94e7A5dCbE816e498b89aB752661904E2F56c485` are read for now. Aave v3 positions are not.
+
+### Track bank accounts
+
+Bank balances are typed in, not read from your bank: no credentials and no open banking. Run `pnpm db:migrate` once (creates `BankAccount`), then open **Bank** in the app and choose **Add account** with a name, the currency (EUR or USD) and the current balance. Edit the balance whenever it changes. A minus sign records an overdraft, which is subtracted from your net worth.
+
+Each snapshot takes the balance as it is at that moment. A USD account is worth its balance in USD, and a EUR account is converted at the same daily rate the app uses for the EUR totals, so a EUR account always shows exactly what you typed in EUR. If the rate cannot be fetched, the previous value of a EUR account is kept and marked stale. A paused account is not counted, and its past snapshots are untouched.
+
+### Track stocks and ETFs
+
+Shares are typed in as a quantity and valued at the live price. Run `pnpm db:migrate` once (creates `StockHolding`), then open **Stocks** in the app and choose **Add holding** with the ticker and how many shares you hold. Prices come from Yahoo Finance, which needs no key.
+
+Use the Yahoo ticker **with its exchange suffix**, because one fund trades on several exchanges in several currencies. For JEQP in euros that is `JEQP.DE` (Xetra, EUR). `JEQP.L` is the London listing, quoted in pence, and is refused. The fund name and the currency are read from the listing when you add it, and an unknown ticker is refused. Only EUR and USD listings are supported. A EUR listing is converted at the same daily rate the app uses for the EUR totals, so it is worth exactly quantity times its EUR price in EUR.
+
+You do not need to know the ticker. In the dialog, type a fund or company name (for example `jpm nasdaq equity premium`) in **Find by name**. Each match shows its exchange, currency and current price. Listings quoted in anything but EUR or USD are greyed out with the reason. Picking one fills the ticker.
+
+If the price or the rate cannot be read, the previous value of that holding is kept and marked stale. A price whose last trade is more than 14 days old is treated as unreadable, so a delisted fund never keeps a frozen price. Quantities accept up to 6 decimals for fractional shares. Update the quantity whenever you buy or sell.
+
+### Track crowdlending loans
+
+Loans on platforms such as 8lends or La Premiere Brique are typed in, nothing is read from the platforms. Run `pnpm db:migrate` once (creates `CrowdlendingLoan`), then open **Crowdlending** in the app and choose **Add loan** with the platform, the project, the amount lent in EUR and the **expected refund date**.
+
+Only what is still to be refunded counts in your net worth, converted at the daily rate like any EUR amount. The page lists the loans by refund date and shows how far each one is: a loan past its date is red and called out in a banner, one due within 30 days is orange. When a refund arrives, edit the loan and lower the amount still to be refunded, or set it to 0 once fully repaid (it stays in the list as repaid, and the history shows the drop). If a project is extended, move its date. The amount lent never changes. Interest is not tracked: when the platform pays it, it is cash in your bank account.
 
 ### Record a snapshot by hand
 

@@ -43,7 +43,7 @@ export interface DashboardData {
 }
 
 // Source types the app knows by name. A later one (stocks, bank, aave) adds a line here, and until it does it is shown capitalised.
-const SOURCE_LABEL: Record<string, string> = { crypto: 'Crypto', exchange: 'Exchanges', stocks: 'Stocks', bank: 'Bank', aave: 'Aave', smardex: 'Smardex', staking: 'Staking', forex: 'Forex' }
+const SOURCE_LABEL: Record<string, string> = { crypto: 'Crypto', exchange: 'Exchanges', stocks: 'Stocks', bank: 'Bank', crowdlending: 'Crowdlending', aave: 'Aave', smardex: 'Smardex', staking: 'Staking', forex: 'Forex' }
 
 export const sourceLabel = (sourceType: string): string => SOURCE_LABEL[sourceType] ?? sourceType.charAt(0).toUpperCase() + sourceType.slice(1)
 

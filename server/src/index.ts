@@ -10,8 +10,11 @@ import { healthRoutes } from './routes/health'
 import { authRoutes } from './routes/auth'
 import { dashboardRoutes } from './routes/dashboard'
 import { adminAaveRoutes, type AdminAaveOptions } from './routes/admin-aave'
+import { adminBankRoutes } from './routes/admin-bank'
+import { adminCrowdlendingRoutes } from './routes/admin-crowdlending'
 import { adminCryptoRoutes, type AdminCryptoOptions } from './routes/admin-crypto'
 import { adminExchangeRoutes, type AdminExchangeOptions } from './routes/admin-exchange'
+import { adminStocksRoutes, type AdminStocksOptions } from './routes/admin-stocks'
 import { adminSmardexRoutes, type SmardexRouteOptions } from './routes/admin-smardex'
 import { adminStakingRoutes, type AdminStakingOptions } from './routes/admin-staking'
 import { snapshotRoutes, type SnapshotRouteOptions } from './routes/snapshots'
@@ -24,6 +27,7 @@ export interface BuildAppOptions {
   adminExchange?: AdminExchangeOptions
   adminSmardex?: SmardexRouteOptions
   adminStaking?: AdminStakingOptions
+  adminStocks?: AdminStocksOptions
   /** Folder of the built client. Defaults to <app>/client/dist in production and to nothing otherwise. */
   clientDist?: string
 }
@@ -49,10 +53,13 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(healthRoutes, { prefix: '/api' })
   await app.register(authRoutes, { prefix: '/api/auth' })
   await app.register(adminAaveRoutes, { prefix: '/api/admin/aave', ...options.adminAave })
+  await app.register(adminBankRoutes, { prefix: '/api/admin/bank' })
+  await app.register(adminCrowdlendingRoutes, { prefix: '/api/admin/crowdlending' })
   await app.register(adminCryptoRoutes, { prefix: '/api/admin/crypto', ...options.adminCrypto })
   await app.register(adminExchangeRoutes, { prefix: '/api/admin/exchanges', ...options.adminExchange })
   await app.register(adminSmardexRoutes, { prefix: '/api/admin/smardex', ...options.adminSmardex })
   await app.register(adminStakingRoutes, { prefix: '/api/admin/staking', ...options.adminStaking })
+  await app.register(adminStocksRoutes, { prefix: '/api/admin/stocks', ...options.adminStocks })
   await app.register(dashboardRoutes, { prefix: '/api/dashboard' })
   await app.register(snapshotRoutes, { prefix: '/api/snapshots', ...options.snapshots })
 

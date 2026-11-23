@@ -93,7 +93,7 @@ async function gather(opts: RunSnapshotOptions, date: string) {
   const sourceResults = await Promise.all(
     opts.sources.map(async (source) => {
       try {
-        return { source, ok: true as const, result: await source.collect({ date }) }
+        return { source, ok: true as const, result: await source.collect({ date, usdPerEur: fxResult.ok ? fxResult.rate.usdPerEur : undefined }) }
       } catch (error) {
         return { source, ok: false as const, error }
       }
