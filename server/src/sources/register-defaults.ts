@@ -1,9 +1,12 @@
 import { createDefaultAaveSource } from './aave/index'
+import { createDefaultBankSource } from './bank/index'
+import { createDefaultCrowdlendingSource } from './crowdlending/index'
 import { createDefaultCryptoSource } from './crypto/index'
 import { createDefaultExchangeSource } from './exchange/index'
 import { registerSource } from './registry'
 import { createDefaultSmardexSource } from './smardex/index'
 import { createDefaultStakingSource } from './staking/index'
+import { createDefaultStocksSource } from './stocks/index'
 
 let done = false
 
@@ -16,4 +19,7 @@ export function registerDefaultSources(): void {
   registerSource(createDefaultSmardexSource())
   registerSource(createDefaultStakingSource())
   registerSource(createDefaultAaveSource())
+  registerSource(createDefaultBankSource())
+  registerSource(createDefaultStocksSource())
+  registerSource(createDefaultCrowdlendingSource())
 }

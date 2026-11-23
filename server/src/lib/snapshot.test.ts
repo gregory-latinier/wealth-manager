@@ -170,6 +170,20 @@ describe('runSnapshot', () => {
     expect((await query('SELECT 1 FROM "Snapshot"')).rowCount).toBe(0)
   })
 
+  it('hands the fresh rate to the sources, and none when the FX lookup fails', async () => {
+    const seen: Array<string | undefined> = []
+    const spy: SourceType = {
+      id: 'bank',
+      collect: async (ctx) => {
+        seen.push(ctx.usdPerEur?.toString())
+        return { lines: [], failures: [] }
+      },
+    }
+    await runSnapshot({ sources: [spy], fx: fxOk, now: at('2026-11-19') })
+    await runSnapshot({ sources: [spy], fx: fxDown, now: at('2026-11-20') })
+    expect(seen).toEqual(['1.25', undefined])
+  })
+
   it('a later successful run on the same day clears stale lines and the stale rate (SC9)', async () => {
     await runSnapshot({ sources: [source('crypto', { lines: [btc, eth], failures: [] })], fx: fxOk, now: at('2026-11-19') })
     const bad = await runSnapshot({

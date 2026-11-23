@@ -1,5 +1,7 @@
 import { Box, Chip, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip, Typography } from '@mui/material'
 import ChevronIcon from '@mui/icons-material/ChevronRight'
+import CollapseAllIcon from '@mui/icons-material/UnfoldLessOutlined'
+import ExpandAllIcon from '@mui/icons-material/UnfoldMoreOutlined'
 import WarningIcon from '@mui/icons-material/WarningAmberOutlined'
 import { Fragment, useState } from 'react'
 import { formatMoney, shortAddress } from '../lib/crypto'
@@ -18,6 +20,12 @@ function describeRef(line: BreakdownLine): string {
   // Staking refs are `<position id>:SYMBOL`, or `<position id>:rewards` for the claimable rewards. The id means nothing to a reader,
   // and the platform is not in the snapshot line.
   if (line.sourceType === 'staking') return line.sourceRef.endsWith(':rewards') ? 'Staking · claimable rewards' : 'Staked'
+  // Bank refs are `<account id>:EUR|USD`. The account name is not in the snapshot line, so the currency is what can be shown.
+  if (line.sourceType === 'bank') return `Bank account · ${line.sourceRef.split(':')[1] ?? ''}`.replace(/ · $/, '')
+  // Stocks refs are `<holding id>:<TICKER>`. The ticker is already the symbol of the row, and the id means nothing to a reader.
+  if (line.sourceType === 'stocks') return 'Stock or ETF'
+  // Crowdlending refs are `<loan id>:EUR`. The loan name is not in the snapshot line.
+  if (line.sourceType === 'crowdlending') return 'Crowdlending loan'
   // Aave refs are `<address>:<reserve id>:supply|debt`. A debt line has a negative amount, so "Borrowed" is enough to read it.
   if (line.sourceType === 'aave') {
     const [owner, , side] = line.sourceRef.split(':')
@@ -129,6 +137,11 @@ export default function Breakdown({ lines, currency, grouping }: { lines: Breakd
   const total = groups.reduce((sum, g) => sum + Math.max(g.value, 0), 0)
   const isOpen = (g: Group) => toggled[`${grouping}:${g.key}`] ?? grouping === 'type'
   const toggle = (g: Group) => setToggled((t) => ({ ...t, [`${grouping}:${g.key}`]: !isOpen(g) }))
+  // Only groups with a row of their own can be open. A single-line asset has nothing to collapse.
+  const expandable = groups.filter((g) => grouping === 'type' || g.lines.length > 1)
+  const anyOpen = expandable.some(isOpen)
+  const allOpen = expandable.every(isOpen)
+  const setAll = (open: boolean) => setToggled((t) => ({ ...t, ...Object.fromEntries(expandable.map((g) => [`${grouping}:${g.key}`, open])) }))
 
   return (
     <TableContainer>
@@ -141,7 +154,26 @@ export default function Breakdown({ lines, currency, grouping }: { lines: Breakd
       >
         <TableHead>
           <TableRow>
-            <TableCell>{grouping === 'type' ? 'Type' : 'Asset'}</TableCell>
+            <TableCell>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                {grouping === 'type' ? 'Type' : 'Asset'}
+                {/* The spans keep the tooltips working while a button is disabled. */}
+                <Tooltip title="Expand all">
+                  <span>
+                    <IconButton size="small" onClick={() => setAll(true)} disabled={allOpen} aria-label="Expand all groups">
+                      <ExpandAllIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Collapse all">
+                  <span>
+                    <IconButton size="small" onClick={() => setAll(false)} disabled={!anyOpen} aria-label="Collapse all groups">
+                      <CollapseAllIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
+            </TableCell>
             <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
               Amount
             </TableCell>

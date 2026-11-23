@@ -1,11 +1,14 @@
 import { AppBar, Box, Button, Container, IconButton, Stack, Toolbar, Tooltip, Typography } from '@mui/material'
-import BankIcon from '@mui/icons-material/AccountBalanceOutlined'
+import AaveIcon from '@mui/icons-material/AccountBalanceOutlined'
+import BankIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
+import CrowdlendingIcon from '@mui/icons-material/HandshakeOutlined'
 import CryptoIcon from '@mui/icons-material/CurrencyBitcoin'
 import DashboardIcon from '@mui/icons-material/DonutLargeOutlined'
 import ExchangeIcon from '@mui/icons-material/CurrencyExchange'
 import LeverageIcon from '@mui/icons-material/CandlestickChartOutlined'
 import LogoutIcon from '@mui/icons-material/LogoutOutlined'
 import StakingIcon from '@mui/icons-material/SavingsOutlined'
+import StocksIcon from '@mui/icons-material/ShowChartOutlined'
 import type { ReactNode } from 'react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
@@ -19,7 +22,10 @@ const LINKS = [
   { to: '/admin/exchanges', label: 'Exchanges', Icon: ExchangeIcon },
   { to: '/admin/smardex', label: 'Smardex', Icon: LeverageIcon },
   { to: '/admin/staking', label: 'Staking', Icon: StakingIcon },
-  { to: '/admin/aave', label: 'Aave', Icon: BankIcon },
+  { to: '/admin/aave', label: 'Aave', Icon: AaveIcon },
+  { to: '/admin/bank', label: 'Bank', Icon: BankIcon },
+  { to: '/admin/stocks', label: 'Stocks', Icon: StocksIcon },
+  { to: '/admin/crowdlending', label: 'Crowdlending', Icon: CrowdlendingIcon },
 ]
 
 /** Pill-shaped tab bar. The current page is the violet gradient pill. */

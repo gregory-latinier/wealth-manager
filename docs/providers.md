@@ -192,3 +192,34 @@ Source type `aave` (`server/src/sources/aave/`). The wallets are the `AaveWallet
 - **Dashboard:** a negative group cannot be drawn in the donut, so it is left out and noted as borrowed, and the centre shows the net worth. In the breakdown, shares are of what is held, and a debt is a red bar.
 - **Not covered:** other Spokes and other chains (the Spoke address is fixed in `spoke.ts`), Aave v3, rewards and Umbrella staking, and the borrow rate. The position moves every block, so the figure is one moment.
 
+## Update: bank accounts (Nov 2026)
+
+Source type `bank` (`server/src/sources/bank/`). The accounts are the `BankAccount` table (migration 014), managed on the Bank page (`/api/admin/bank/accounts`). Balances are entered by hand: there is no provider, so nothing to authenticate and nothing that can break at a bank. Open banking (GoCardless, Tink, Powens) was considered and left out for now.
+
+- **Currencies:** EUR and USD, enforced by a check constraint. The currency cannot be edited, because it is part of the snapshot key.
+- **Balance:** `numeric(20,2)`, a plain decimal with at most 2 decimals. Negative is an overdraft and is a negative line, so it lowers the net worth. Zero is allowed.
+- **Lines:** `<account id>:EUR|USD`, symbol EUR or USD. A USD line has price 1. A EUR line has price `usdPerEur`, which the engine now passes to every source in `SnapshotContext.usdPerEur` (the rate it just fetched). Using the same rate as the totals means a EUR account is worth exactly its typed amount in EUR.
+- **Failure behaviour:** `usdPerEur` is absent when the FX lookup failed, even though the engine falls back to the last stored rate for its own totals. A EUR account is then reported as a failure and carried forward as stale, never valued at 0. USD accounts do not need a rate and stay fresh.
+- **Not covered:** other currencies, interest accrual, automatic balances, and account numbers (none are stored).
+
+## Update: stocks and ETFs (Nov 2026)
+
+Source type `stocks` (`server/src/sources/stocks/`). The holdings are the `StockHolding` table (migration 015), managed on the Stocks page (`/api/admin/stocks/holdings`). The owner types a quantity, the price comes from Yahoo Finance.
+
+- **Provider:** `https://query1.finance.yahoo.com/v8/finance/chart/<ticker>?range=5d&interval=1d`, keyless. It is an unofficial endpoint and needs a browser-like `User-Agent`. Only `meta` is used: `regularMarketPrice`, `currency`, `regularMarketTime`, `longName`. An unknown ticker is HTTP 404 or `chart.error.code = "Not Found"`. Alternatives looked at: Stooq (CSV, no currency field), Alpha Vantage and Twelve Data (key and tight free quotas, thin on European ETFs). If Yahoo ever blocks the server the source reports failures and holdings go stale, they are never valued at 0.
+- **One fund, several listings:** JEQP (JPM Nasdaq Equity Premium Income Active UCITS ETF USD Dist) answers on `JEQP.DE` (Xetra, EUR 21.77 on 2026-11-23) and `JEQP.L` (London, GBp 1823). `.MI` and `.AS` have no data. The ticker with its suffix is the identity, and the suffix fixes the currency.
+- **Ticker search:** `GET /api/admin/stocks/search?q=` (2 to 60 characters, 20 per minute) calls `https://query1.finance.yahoo.com/v1/finance/search?q=<text>&quotesCount=10&newsCount=0&listsCount=0`, same keyless service and `User-Agent`. Only `ETF`, `EQUITY` and `MUTUALFUND` hits are kept, at most 8. The search result has no currency, so each hit is priced with the chart endpoint above, which gives its currency and price. Hits quoted in EUR or USD come first, the others are returned with `supported: false` and a reason (for example GBp for London) so the UI can grey them out. A hit whose price cannot be read is flagged, it does not fail the search. Searching by ISIN is unreliable on Yahoo, name and ticker work.
+- **Currency:** read from the quote when the holding is added and stored. EUR and USD only. Anything else is refused with a hint, notably `GBp`/`GBX` (pence, a hundredth of a pound) which would otherwise be valued 100 times too high. At each snapshot a listing quoted in a different currency than stored is a failure, not a conversion.
+- **Lines:** `<holding id>:<TICKER>`, symbol is the ticker, amount is the quantity. A USD listing has price = the USD price. A EUR listing has price = EUR price times `SnapshotContext.usdPerEur`, the rate the engine fetched for the same snapshot (see the bank section), so the stored EUR value is exactly quantity times the EUR price.
+- **Failure behaviour:** a price that cannot be read, a last trade older than 14 days, or no EUR rate for a EUR listing fails only that holding, which is carried forward as stale. Quotes are fetched 3 at a time.
+- **Not covered:** other currencies, dividends (the ETF is a distributing share class, the cash received is not tracked), cost basis and P&L, and prices outside trading hours. The figure is the last regular-market price.
+
+## Update: crowdlending (Nov 2026)
+
+Source type `crowdlending` (`server/src/sources/crowdlending/`). The loans are the `CrowdlendingLoan` table (migration 016), managed on the Crowdlending page (`/api/admin/crowdlending/loans`). There is no provider: 8lends and La Premiere Brique have no public API, so the owner types the figures, like bank accounts.
+
+- **Per loan:** platform, project name, `lent` (fixed at creation), `outstanding` (what is still to be refunded) and `dueDate` (expected refund, a plain `date`).
+- **Valuation:** only `outstanding` counts, in EUR. Lines are `<loan id>:EUR`, symbol EUR, amount = outstanding, price = the engine's fresh USD per EUR (same mechanism as the bank source). With no rate the loan fails and is carried forward as stale, never valued at 0.
+- **Repayment:** the owner lowers `outstanding`. At 0 the line stays at 0, so the history shows the refund. `outstanding` cannot exceed `lent`.
+- **Due dates:** the page marks a loan overdue when `dueDate` is before today and `outstanding > 0`, and "soon" within 30 days. A reminder by email or push is not built.
+- **Not covered:** interest (counted as cash when paid), other currencies, automatic reading of the platforms, notifications.

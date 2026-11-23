@@ -6,6 +6,8 @@ export type SourceId = string
 export interface SnapshotContext {
   /** UTC date of the snapshot being taken (YYYY-MM-DD). */
   date: string
+  /** USD per one EUR, fresh from the FX provider. Absent when the rate could not be fetched: EUR cash then cannot be valued. */
+  usdPerEur?: Decimal
 }
 
 /** One successfully valued holding. The engine computes the USD and EUR values from these. */

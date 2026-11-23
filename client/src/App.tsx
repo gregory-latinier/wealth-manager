@@ -1,10 +1,13 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, RequireAuth } from './lib/auth'
 import Aave from './pages/admin/Aave'
+import Bank from './pages/admin/Bank'
+import Crowdlending from './pages/admin/Crowdlending'
 import Crypto from './pages/admin/Crypto'
 import Exchanges from './pages/admin/Exchanges'
 import Smardex from './pages/admin/Smardex'
 import Staking from './pages/admin/Staking'
+import Stocks from './pages/admin/Stocks'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
 
@@ -58,6 +61,30 @@ export default function App() {
           element={
             <RequireAuth>
               <Staking />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/bank"
+          element={
+            <RequireAuth>
+              <Bank />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/crowdlending"
+          element={
+            <RequireAuth>
+              <Crowdlending />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/stocks"
+          element={
+            <RequireAuth>
+              <Stocks />
             </RequireAuth>
           }
         />
