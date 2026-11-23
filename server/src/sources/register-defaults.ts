@@ -3,6 +3,7 @@ import { createDefaultBankSource } from './bank/index'
 import { createDefaultCrowdlendingSource } from './crowdlending/index'
 import { createDefaultCryptoSource } from './crypto/index'
 import { createDefaultExchangeSource } from './exchange/index'
+import { createDefaultMt5Source } from './mt5/index'
 import { registerSource } from './registry'
 import { createDefaultSmardexSource } from './smardex/index'
 import { createDefaultStakingSource } from './staking/index'
@@ -22,4 +23,5 @@ export function registerDefaultSources(): void {
   registerSource(createDefaultBankSource())
   registerSource(createDefaultStocksSource())
   registerSource(createDefaultCrowdlendingSource())
+  registerSource(createDefaultMt5Source())
 }

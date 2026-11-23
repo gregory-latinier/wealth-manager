@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify'
 import { requireAuth } from '../lib/auth'
 import { Decimal } from '../lib/money'
-import { MAX_TEXT_LENGTH, createLoan, deleteLoan, getLoan, lastValues, listLoans, updateLoan } from '../sources/crowdlending/loans'
+import { CURRENCIES, MAX_TEXT_LENGTH, createLoan, deleteLoan, getLoan, lastValues, listLoans, updateLoan } from '../sources/crowdlending/loans'
 
 const idParams = {
   type: 'object',
@@ -43,15 +43,15 @@ export const adminCrowdlendingRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         body: {
           type: 'object',
-          required: ['platform', 'name', 'lent', 'dueDate'],
+          required: ['platform', 'name', 'currency', 'lent', 'dueDate'],
           additionalProperties: false,
-          properties: { platform: textSchema, name: textSchema, lent: amountSchema, outstanding: amountSchema, dueDate: dateSchema },
+          properties: { platform: textSchema, name: textSchema, currency: { type: 'string', enum: [...CURRENCIES] }, lent: amountSchema, outstanding: amountSchema, dueDate: dateSchema },
         },
       },
       config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
-      const body = request.body as { platform: string; name: string; lent: string; outstanding?: string; dueDate: string }
+      const body = request.body as { platform: string; name: string; currency: (typeof CURRENCIES)[number]; lent: string; outstanding?: string; dueDate: string }
       const platform = body.platform.trim()
       const name = body.name.trim()
       if (!platform) return reply.status(400).send({ error: 'Give the platform, for example 8lends' })
@@ -63,7 +63,7 @@ export const adminCrowdlendingRoutes: FastifyPluginAsync = async (fastify) => {
       if (!AMOUNT.test(outstanding)) return reply.status(400).send({ error: AMOUNT_ERROR })
       if (new Decimal(outstanding).gt(lent)) return reply.status(400).send({ error: 'The outstanding amount cannot be more than what was lent' })
       if (!validDate(body.dueDate)) return reply.status(400).send({ error: DATE_ERROR })
-      const created = await createLoan({ platform, name, lent, outstanding, dueDate: body.dueDate })
+      const created = await createLoan({ platform, name, currency: body.currency, lent, outstanding, dueDate: body.dueDate })
       return reply.status(201).send(created)
     }
   )

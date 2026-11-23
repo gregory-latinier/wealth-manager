@@ -14,6 +14,8 @@ import { adminBankRoutes } from './routes/admin-bank'
 import { adminCrowdlendingRoutes } from './routes/admin-crowdlending'
 import { adminCryptoRoutes, type AdminCryptoOptions } from './routes/admin-crypto'
 import { adminExchangeRoutes, type AdminExchangeOptions } from './routes/admin-exchange'
+import { adminSettingsRoutes } from './routes/admin-settings'
+import { adminMt5Routes, type AdminMt5Options } from './routes/admin-mt5'
 import { adminStocksRoutes, type AdminStocksOptions } from './routes/admin-stocks'
 import { adminSmardexRoutes, type SmardexRouteOptions } from './routes/admin-smardex'
 import { adminStakingRoutes, type AdminStakingOptions } from './routes/admin-staking'
@@ -25,6 +27,7 @@ export interface BuildAppOptions {
   adminAave?: AdminAaveOptions
   adminCrypto?: AdminCryptoOptions
   adminExchange?: AdminExchangeOptions
+  adminMt5?: AdminMt5Options
   adminSmardex?: SmardexRouteOptions
   adminStaking?: AdminStakingOptions
   adminStocks?: AdminStocksOptions
@@ -57,6 +60,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(adminCrowdlendingRoutes, { prefix: '/api/admin/crowdlending' })
   await app.register(adminCryptoRoutes, { prefix: '/api/admin/crypto', ...options.adminCrypto })
   await app.register(adminExchangeRoutes, { prefix: '/api/admin/exchanges', ...options.adminExchange })
+  await app.register(adminMt5Routes, { prefix: '/api/admin/mt5', ...options.adminMt5 })
+  await app.register(adminSettingsRoutes, { prefix: '/api/admin/settings' })
   await app.register(adminSmardexRoutes, { prefix: '/api/admin/smardex', ...options.adminSmardex })
   await app.register(adminStakingRoutes, { prefix: '/api/admin/staking', ...options.adminStaking })
   await app.register(adminStocksRoutes, { prefix: '/api/admin/stocks', ...options.adminStocks })

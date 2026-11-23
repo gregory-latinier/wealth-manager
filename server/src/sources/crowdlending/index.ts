@@ -8,8 +8,8 @@ export interface CrowdlendingDeps {
   loans?: () => Promise<Loan[]>
 }
 
-/** Stable key of one loan. Loans are always in EUR, so the ref never changes. */
-export const loanRef = (loan: Pick<Loan, 'id'>) => `${loan.id}:EUR`
+/** Stable key of one loan. The currency never changes, so carry-forward always matches. */
+export const loanRef = (loan: Pick<Loan, 'id' | 'currency'>) => `${loan.id}:${loan.currency}`
 
 export function createCrowdlendingSource(deps: CrowdlendingDeps = {}): SourceType {
   const loans = deps.loans ?? activeLoans
@@ -23,9 +23,11 @@ export function createCrowdlendingSource(deps: CrowdlendingDeps = {}): SourceTyp
 
       for (const loan of await loans()) {
         const sourceRef = loanRef(loan)
-        if (ctx.usdPerEur) {
-          // The same rate the engine uses for the EUR totals, so a loan shows exactly the outstanding amount that was typed.
-          // A repaid loan (outstanding 0) stays as a zero line, so the history shows when it was refunded.
+        // A repaid loan (outstanding 0) stays as a zero line, so the history shows when it was refunded.
+        if (loan.currency === 'USD') {
+          lines.push({ sourceRef, symbol: 'USD', amount: dec(loan.outstanding), priceUsd: dec(1) })
+        } else if (ctx.usdPerEur) {
+          // The same rate the engine uses for the EUR totals, so a EUR loan shows exactly the outstanding amount that was typed.
           lines.push({ sourceRef, symbol: 'EUR', amount: dec(loan.outstanding), priceUsd: ctx.usdPerEur })
         } else {
           // No rate is a failure (carried forward as stale), never a line valued at 0.

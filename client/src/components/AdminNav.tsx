@@ -7,29 +7,36 @@ import DashboardIcon from '@mui/icons-material/DonutLargeOutlined'
 import ExchangeIcon from '@mui/icons-material/CurrencyExchange'
 import LeverageIcon from '@mui/icons-material/CandlestickChartOutlined'
 import LogoutIcon from '@mui/icons-material/LogoutOutlined'
+import SettingsIcon from '@mui/icons-material/SettingsOutlined'
+import Mt5Icon from '@mui/icons-material/QueryStatsOutlined'
 import StakingIcon from '@mui/icons-material/SavingsOutlined'
 import StocksIcon from '@mui/icons-material/ShowChartOutlined'
 import type { ReactNode } from 'react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { useSettings, type Section } from '../lib/settings'
 import { VIOLET } from '../theme'
 import Logo from './Logo'
 
-// One entry per admin page. Later source types (forex, bank, stocks) add a line here.
-const LINKS = [
-  { to: '/', label: 'Dashboard', Icon: DashboardIcon },
-  { to: '/admin/crypto', label: 'Crypto', Icon: CryptoIcon },
-  { to: '/admin/exchanges', label: 'Exchanges', Icon: ExchangeIcon },
-  { to: '/admin/smardex', label: 'Smardex', Icon: LeverageIcon },
-  { to: '/admin/staking', label: 'Staking', Icon: StakingIcon },
-  { to: '/admin/aave', label: 'Aave', Icon: AaveIcon },
-  { to: '/admin/bank', label: 'Bank', Icon: BankIcon },
-  { to: '/admin/stocks', label: 'Stocks', Icon: StocksIcon },
-  { to: '/admin/crowdlending', label: 'Crowdlending', Icon: CrowdlendingIcon },
+const DASHBOARD_LINK = { to: '/', label: 'Dashboard', Icon: DashboardIcon }
+
+// One entry per page that can be hidden from the menu. The settings page lists them in this order.
+export const SECTION_LINKS: Array<{ section: Section; to: string; label: string; Icon: typeof DashboardIcon }> = [
+  { section: 'crypto', to: '/admin/crypto', label: 'Crypto', Icon: CryptoIcon },
+  { section: 'exchanges', to: '/admin/exchanges', label: 'Exchanges', Icon: ExchangeIcon },
+  { section: 'smardex', to: '/admin/smardex', label: 'Smardex', Icon: LeverageIcon },
+  { section: 'staking', to: '/admin/staking', label: 'Staking', Icon: StakingIcon },
+  { section: 'aave', to: '/admin/aave', label: 'Aave', Icon: AaveIcon },
+  { section: 'bank', to: '/admin/bank', label: 'Bank', Icon: BankIcon },
+  { section: 'stocks', to: '/admin/stocks', label: 'Stocks', Icon: StocksIcon },
+  { section: 'crowdlending', to: '/admin/crowdlending', label: 'Crowdlending', Icon: CrowdlendingIcon },
+  { section: 'mt5', to: '/admin/mt5', label: 'MT5', Icon: Mt5Icon },
 ]
 
 /** Pill-shaped tab bar. The current page is the violet gradient pill. */
 function NavPills({ pathname, sx }: { pathname: string; sx?: object }) {
+  const { hiddenSections } = useSettings()
+  const links = [DASHBOARD_LINK, ...SECTION_LINKS.filter((l) => !hiddenSections.includes(l.section) || pathname === l.to)]
   return (
     <Box
       component="nav"
@@ -44,7 +51,7 @@ function NavPills({ pathname, sx }: { pathname: string; sx?: object }) {
         ...sx,
       }}
     >
-      {LINKS.map(({ to, label, Icon }) => {
+      {links.map(({ to, label, Icon }) => {
         const current = pathname === to
         return (
           <Button
@@ -89,6 +96,21 @@ export default function AdminNav({ children }: { children: ReactNode }) {
           <Box sx={{ flexGrow: 1, display: { xs: 'none', sm: 'flex' }, justifyContent: 'center' }}>
             <NavPills pathname={pathname} />
           </Box>
+          <Tooltip title="Settings">
+            <IconButton
+              component={RouterLink}
+              to="/admin/settings"
+              aria-label="Settings"
+              aria-current={pathname === '/admin/settings' ? 'page' : undefined}
+              sx={{
+                color: pathname === '/admin/settings' ? '#fff' : 'text.secondary',
+                bgcolor: pathname === '/admin/settings' ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.06)',
+                '&:hover': { color: '#fff', bgcolor: 'rgba(255, 255, 255, 0.12)' },
+              }}
+            >
+              <SettingsIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="Log out">
             <IconButton
               onClick={logout}
