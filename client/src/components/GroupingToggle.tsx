@@ -8,6 +8,7 @@ export default function GroupingToggle({ value, onChange }: { value: Grouping; o
       <ToggleButton value="asset">By asset</ToggleButton>
       <ToggleButton value="category">By category</ToggleButton>
       <ToggleButton value="type">By type</ToggleButton>
+      <ToggleButton value="status">By status</ToggleButton>
     </ToggleButtonGroup>
   )
 }

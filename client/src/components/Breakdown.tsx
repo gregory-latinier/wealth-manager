@@ -6,7 +6,7 @@ import WarningIcon from '@mui/icons-material/WarningAmberOutlined'
 import { Fragment, useState } from 'react'
 import { shortAddress } from '../lib/crypto'
 import { VIOLET } from '../theme'
-import { groupKey, groupLabel, type BreakdownLine, type Currency, type Grouping } from '../lib/dashboard'
+import { groupKey, groupLabel, statusColor, statusLabel, statusOf, type BreakdownLine, type Currency, type Grouping, type Status } from '../lib/dashboard'
 import { useMoney } from '../lib/privacy'
 
 const EXCHANGE_NAMES: Record<string, string> = { kraken: 'Kraken', okx: 'OKX' }
@@ -97,6 +97,12 @@ const staleChip = (staleSince: string | null) => (
   </Tooltip>
 )
 
+/** A small tag for a holding that cannot be used freely. Available is the normal case, so it gets no tag. */
+const statusTag = (status: Status) =>
+  status === 'available' ? null : (
+    <Chip size="small" variant="outlined" label={statusLabel(status)} sx={{ ml: 1, height: 20, fontSize: 11, color: statusColor(status), borderColor: statusColor(status) }} />
+  )
+
 // Layout of the first column, in px. The table cells pad 8px on a phone and 16px above, and a group row starts with a chevron button
 // followed by its label. Lines are placed from these numbers so they line up with that label instead of an eyeballed value.
 const CELL_PAD = { xs: 8, sm: 16 }
@@ -140,6 +146,8 @@ function LineRow({ line, currency, total, nested, aligned = false, grouping }: {
             {describeRef(line)}
           </Typography>
         )}
+        {/* Under a status group the group row already says it, so the tag is only for the other groupings. */}
+        {grouping !== 'status' && statusTag(statusOf(line))}
         {line.stale && staleChip(line.staleSince)}
       </TableCell>
       <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', display: { xs: 'none', sm: 'table-cell' } }}>
@@ -194,7 +202,7 @@ export default function Breakdown({ lines, currency, grouping }: { lines: Breakd
           <TableRow>
             <TableCell>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                {{ asset: 'Asset', category: 'Category', type: 'Type' }[grouping]}
+                {{ asset: 'Asset', category: 'Category', type: 'Type', status: 'Status' }[grouping]}
                 {/* The spans keep the tooltips working while a button is disabled. */}
                 <Tooltip title="Expand all">
                   <span>
