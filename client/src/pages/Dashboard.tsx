@@ -1,19 +1,23 @@
-import { Alert, Box, Button, Paper, Skeleton, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { Alert, Box, Button, IconButton, Paper, Skeleton, Stack, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material'
 import Grid from '@mui/material/Grid'
 import ArrowDownIcon from '@mui/icons-material/ArrowDownward'
 import ArrowUpIcon from '@mui/icons-material/ArrowUpward'
 import RemoveIcon from '@mui/icons-material/Remove'
+import VisibilityIcon from '@mui/icons-material/VisibilityOutlined'
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOffOutlined'
 import InsightsIcon from '@mui/icons-material/InsightsOutlined'
 import { useEffect, useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import AdminNav from '../components/AdminNav'
 import Allocation from '../components/Allocation'
 import Breakdown from '../components/Breakdown'
+import CategoryCards from '../components/CategoryCards'
 import GroupingToggle from '../components/GroupingToggle'
 import NetWorthChart from '../components/NetWorthChart'
 import { ApiError } from '../lib/api'
-import { formatMoney } from '../lib/crypto'
 import { fetchDashboard, type Change, type Currency, type DashboardData, type Grouping } from '../lib/dashboard'
+import { srOnly, useCountUp } from '../lib/motion'
+import { useAmountsHidden, useMoney } from '../lib/privacy'
 
 /**
  * Signed change as a pill. Direction is carried by the arrow and the sign, color only reinforces it.
@@ -21,6 +25,7 @@ import { fetchDashboard, type Change, type Currency, type DashboardData, type Gr
  * and the text says the same thing.
  */
 function ChangePill({ label, change, currency }: { label: string; change: Change | null; currency: Currency }) {
+  const { money, hidden } = useMoney()
   const figure = change ? (currency === 'USD' ? change.usd : change.eur) : null
   const sign = figure ? Math.sign(Number(figure.abs)) : 0
   const Icon = sign > 0 ? ArrowUpIcon : sign < 0 ? ArrowDownIcon : RemoveIcon
@@ -37,8 +42,8 @@ function ChangePill({ label, change, currency }: { label: string; change: Change
             component="p"
             sx={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: tone === 'text' ? 'text.primary' : `${tone}.main` }}
           >
-            {sign > 0 ? '+' : ''}
-            {formatMoney(figure.abs, currency)}
+            {sign > 0 && !hidden ? '+' : ''}
+            {money(figure.abs, currency)}
           </Typography>
           <Box
             sx={(t) => ({
@@ -106,6 +111,8 @@ function EmptyState() {
 }
 
 export default function Dashboard() {
+  const { money, hidden } = useMoney()
+  const { toggle: toggleHidden } = useAmountsHidden()
   const [data, setData] = useState<DashboardData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [currency, setCurrency] = useState<Currency>('USD')
@@ -136,6 +143,8 @@ export default function Dashboard() {
   }, [date])
 
   const latest = data?.latest ?? null
+  // The headline total counts up on load and glides when the currency changes.
+  const totalShown = useCountUp(latest ? Number(currency === 'USD' ? latest.totalUsd : latest.totalEur) : 0)
   const shownDate = data?.breakdown?.date ?? null
   const isLatest = !latest || shownDate === latest.date
 
@@ -167,12 +176,23 @@ export default function Dashboard() {
                 <Typography variant="overline" color="text.secondary" component="h1">
                   Total portfolio value
                 </Typography>
-                <Typography
-                  component="p"
-                  sx={{ fontSize: { xs: 40, sm: 56 }, lineHeight: 1.1, fontWeight: 700, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}
-                >
-                  {formatMoney(currency === 'USD' ? latest.totalUsd : latest.totalEur, currency)}
-                </Typography>
+                <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
+                  <Typography
+                    component="p"
+                    sx={{ fontSize: { xs: 40, sm: 56 }, lineHeight: 1.1, fontWeight: 700, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}
+                  >
+                    {/* A screen reader gets the real figure, never the counting digits. */}
+                    <Box component="span" sx={srOnly}>
+                      {money(currency === 'USD' ? latest.totalUsd : latest.totalEur, currency)}
+                    </Box>
+                    <span aria-hidden>{money(String(totalShown), currency)}</span>
+                  </Typography>
+                  <Tooltip title={hidden ? 'Show amounts' : 'Hide amounts'}>
+                    <IconButton onClick={toggleHidden} aria-label={hidden ? 'Show amounts' : 'Hide amounts'} sx={{ color: 'text.secondary' }}>
+                      {hidden ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                   As of {latest.date} (UTC)
                 </Typography>
@@ -192,6 +212,8 @@ export default function Dashboard() {
               )}
             </Box>
           </Paper>
+
+          {data.breakdown && <CategoryCards lines={data.breakdown.lines} currency={currency} />}
 
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 8 }}>

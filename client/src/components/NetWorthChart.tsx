@@ -1,8 +1,10 @@
 import { Box, Typography, useTheme } from '@mui/material'
+import { useMemo } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { formatMoney } from '../lib/crypto'
 import { VIOLET } from '../theme'
-import { compactMoney, type Currency, type DashboardData } from '../lib/dashboard'
+import type { Currency, DashboardData } from '../lib/dashboard'
+import { usePrefersReducedMotion } from '../lib/motion'
+import { useMoney } from '../lib/privacy'
 
 // A single series, so no legend box and no dual axis. The app is dark only, so one violet.
 const SERIES = VIOLET.accent
@@ -21,6 +23,7 @@ interface TooltipProps {
 }
 
 function ChartTooltip({ active, payload, currency }: TooltipProps) {
+  const { money } = useMoney()
   if (!active || !payload?.length) return null
   const p = payload[0].payload
   return (
@@ -29,7 +32,7 @@ function ChartTooltip({ active, payload, currency }: TooltipProps) {
         {p.date}
       </Typography>
       <Typography variant="body1" sx={{ fontWeight: 600 }}>
-        {formatMoney(p.raw, currency)}
+        {money(p.raw, currency)}
       </Typography>
       {p.partial && (
         <Typography variant="caption" color="text.secondary">
@@ -52,8 +55,21 @@ export default function NetWorthChart({
   onSelectDate: (date: string) => void
 }) {
   const theme = useTheme()
+  const { compact, hidden } = useMoney()
+  const reduced = usePrefersReducedMotion()
   const color = SERIES
   const surface = theme.palette.background.paper
+
+  // Memoized, and before the early return so the hook order never changes. Clicking a day re-renders this component, and a fresh
+  // array each time would make the chart redraw its line from the left.
+  const data: Point[] = useMemo(
+    () =>
+      series.map((s) => {
+        const raw = currency === 'USD' ? s.totalUsd : s.totalEur
+        return { date: s.date, value: Number(raw), raw, partial: s.status === 'partial' }
+      }),
+    [series, currency]
+  )
 
   if (series.length < 2) {
     return (
@@ -62,11 +78,6 @@ export default function NetWorthChart({
       </Typography>
     )
   }
-
-  const data: Point[] = series.map((s) => {
-    const raw = currency === 'USD' ? s.totalUsd : s.totalEur
-    return { date: s.date, value: Number(raw), raw, partial: s.status === 'partial' }
-  })
   const selected = data.find((d) => d.date === selectedDate)
   const last = data[data.length - 1]
 
@@ -94,7 +105,9 @@ export default function NetWorthChart({
             tickLine={false}
             axisLine={false}
             tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
-            tickFormatter={(v: number) => compactMoney(v, currency)}
+            // The axis labels would give the scale away, so they go too. The line keeps its shape.
+            tickFormatter={(v: number) => compact(v, currency)}
+            hide={hidden}
             domain={['auto', 'auto']}
           />
           <Tooltip content={<ChartTooltip currency={currency} />} cursor={{ stroke: theme.palette.text.secondary, strokeWidth: 1 }} />
@@ -108,7 +121,10 @@ export default function NetWorthChart({
             fill="url(#wm-area)"
             dot={false}
             activeDot={{ r: 5, fill: color, stroke: surface, strokeWidth: 2 }}
-            isAnimationActive={false}
+            // The line draws itself from the left on first load and morphs when the currency changes.
+            isAnimationActive={!reduced}
+            animationDuration={1100}
+            animationEasing="ease-out"
           />
           {/* End marker with its surface ring, plus a marker on the date whose breakdown is shown. */}
           <Area

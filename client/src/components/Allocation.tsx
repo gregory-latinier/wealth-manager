@@ -1,8 +1,9 @@
 import { Box, ButtonBase, Stack, Typography } from '@mui/material'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Cell, Pie, PieChart } from 'recharts'
-import { formatMoney } from '../lib/crypto'
-import { compactMoney, groupKey, groupLabel, type BreakdownLine, type Currency, type Grouping } from '../lib/dashboard'
+import { categoryColor, groupKey, groupLabel, type BreakdownLine, type Currency, type Grouping } from '../lib/dashboard'
+import { usePrefersReducedMotion } from '../lib/motion'
+import { useMoney } from '../lib/privacy'
 import GroupingToggle from './GroupingToggle'
 
 // Violet ramp first, then cool neighbours so adjacent slices stay distinguishable on the dark surface.
@@ -45,6 +46,8 @@ function slices(lines: BreakdownLine[], currency: Currency, grouping: Grouping):
  * The legend carries every value as text and is made of real buttons, so the donut itself stays decorative.
  */
 export default function Allocation({ lines, currency, grouping, onGroupingChange }: { lines: BreakdownLine[]; currency: Currency; grouping: Grouping; onGroupingChange: (next: Grouping) => void }) {
+  const { money, compact } = useMoney()
+  const reduced = usePrefersReducedMotion()
   const [hovered, setHovered] = useState<string | null>(null)
   const [pinned, setPinned] = useState<string | null>(null)
 
@@ -54,7 +57,10 @@ export default function Allocation({ lines, currency, grouping, onGroupingChange
     setPinned(null)
   }, [grouping])
 
-  const { slices: data, owed } = slices(lines, currency, grouping)
+  // Memoized: a new array on every render (a hover changes state) would make the chart think its data changed and sweep again.
+  const { slices: data, owed } = useMemo(() => slices(lines, currency, grouping), [lines, currency, grouping])
+  // By category a slice keeps its category color, matching the cards. Otherwise colors follow the ramp, largest first.
+  const colorOf = (s: Slice, i: number) => (grouping === 'category' ? categoryColor(s.key) : undefined) ?? SLICES[i % SLICES.length]
   // The middle of the donut is the net worth, so it is the headline figure even when part of it is borrowed.
   const total = data.reduce((sum, s) => sum + s.value, 0) - owed
   // A pinned slice that no longer exists (other currency, other day) is ignored rather than leaving everything dimmed.
@@ -95,13 +101,17 @@ export default function Allocation({ lines, currency, grouping, onGroupingChange
                 paddingAngle={data.length > 1 ? 3 : 0}
                 cornerRadius={6}
                 stroke="none"
-                isAnimationActive={false}
+                // The slices sweep round on load and re-sweep when the grouping changes. Hover is handled by opacity, not by animation.
+                isAnimationActive={!reduced}
+                animationBegin={0}
+                animationDuration={850}
+                animationEasing="ease-out"
                 onMouseEnter={(_, index) => setHovered(data[index]?.key ?? null)}
                 onMouseLeave={() => setHovered(null)}
                 onClick={(_, index) => data[index] && togglePin(data[index].key)}
               >
                 {data.map((s, i) => (
-                  <Cell key={s.key} fill={SLICES[i % SLICES.length]} fillOpacity={active && active.key !== s.key ? 0.3 : 1} />
+                  <Cell key={s.key} fill={colorOf(s, i)} fillOpacity={active && active.key !== s.key ? 0.3 : 1} />
                 ))}
               </Pie>
             </PieChart>
@@ -112,7 +122,7 @@ export default function Allocation({ lines, currency, grouping, onGroupingChange
                   {active ? active.label : 'Total'}
                 </Typography>
                 <Typography sx={{ fontWeight: 700, fontSize: 16, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>
-                  {compactMoney(active ? active.value : total, currency)}
+                  {compact(active ? active.value : total, currency)}
                 </Typography>
                 {active && (
                   <Typography variant="caption" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -148,12 +158,12 @@ export default function Allocation({ lines, currency, grouping, onGroupingChange
                     transition: 'opacity 120ms, background-color 120ms',
                   }}
                 >
-                  <Box aria-hidden sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: SLICES[i % SLICES.length], flexShrink: 0 }} />
+                  <Box aria-hidden sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: colorOf(s, i), flexShrink: 0 }} />
                   <Typography variant="body2" sx={{ fontWeight: 600, flexGrow: 1 }} noWrap>
                     {s.label}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {formatMoney(String(s.value), currency)}
+                    {money(String(s.value), currency)}
                   </Typography>
                   <Typography variant="body2" sx={{ minWidth: 48, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                     {s.share.toFixed(1)}%
@@ -163,7 +173,7 @@ export default function Allocation({ lines, currency, grouping, onGroupingChange
             })}
             {owed > 0 && (
               <Typography variant="caption" color="text.secondary" sx={{ px: 1, pt: 0.5 }}>
-                Net of {formatMoney(String(owed), currency)} borrowed, which is not drawn.
+                Net of {money(String(owed), currency)} borrowed, which is not drawn.
               </Typography>
             )}
           </Stack>
