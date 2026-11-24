@@ -239,9 +239,11 @@ describe('evm-rpc', () => {
       eth: ['https://ethereum-rpc.publicnode.com'],
       base: ['https://a.test', 'https://b.test'],
       bsc: ['https://bsc-dataseed1.binance.org', 'https://bsc-rpc.publicnode.com'],
+      arb: ['https://arb1.arbitrum.io/rpc', 'https://arbitrum-one-rpc.publicnode.com'],
     })
     expect(rpcUrlsFromEnv({ ETH_RPC_URL: '  ' } as NodeJS.ProcessEnv).eth).toEqual(['https://ethereum-rpc.publicnode.com'])
     expect(rpcUrlsFromEnv({ BSC_RPC_URL: 'https://bsc.test' } as NodeJS.ProcessEnv).bsc).toEqual(['https://bsc.test'])
+    expect(rpcUrlsFromEnv({ ARB_RPC_URL: 'https://arb.test' } as NodeJS.ProcessEnv).arb).toEqual(['https://arb.test'])
   })
 })
 
@@ -257,6 +259,14 @@ describe('coingecko', () => {
     expect(parseNativePrices({ bitcoin: { usd: 1 }, ethereum: { usd: 2 } }).bnb).toBeUndefined()
     // A missing BNB price must not break Bitcoin and Ethereum valuation.
     expect(parseNativePrices({ bitcoin: { usd: 1 }, ethereum: { usd: 2 }, binancecoin: { usd: 0 } }).bnb).toBeUndefined()
+  })
+
+  it('returns the SOL price when present and leaves it out when absent', () => {
+    expect(parseNativePrices({ bitcoin: { usd: 1 }, ethereum: { usd: 2 }, solana: { usd: 70.74 } }).sol?.toString()).toBe('70.74')
+    // A missing SOL price must not break the other chains.
+    const without = parseNativePrices({ bitcoin: { usd: 1 }, ethereum: { usd: 2 } })
+    expect(without.sol).toBeUndefined()
+    expect(without.btc.toString()).toBe('1')
   })
 
   it('requires both native prices', () => {
@@ -303,6 +313,10 @@ describe('coingecko', () => {
     const bsc = fakeFetch(json({}))
     await createCoinGecko({ fetch: bsc.fetch }).getTokenPrices('bsc', [USDC])
     expect(bsc.calls[0].url).toContain('/simple/token_price/binance-smart-chain')
+
+    const arb = fakeFetch(json({}))
+    await createCoinGecko({ fetch: arb.fetch }).getTokenPrices('arb', [USDC])
+    expect(arb.calls[0].url).toContain('/simple/token_price/arbitrum-one')
   })
 
   it('sends the optional API key and surfaces provider errors', async () => {

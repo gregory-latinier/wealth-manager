@@ -131,6 +131,16 @@ describe('known-token scan (Base and BNB Chain)', () => {
     expect(calls.priced[0].sort()).toEqual([WETH_BASE, USDC_BASE]) // only the held ones are priced (sorted: 0x42… before 0x83…)
   })
 
+  it('scans Arbitrum with its own contracts and 6-decimal USDC', async () => {
+    const USDC_ARB = '0xaf88d065e77c8cc2239327c5edb3a432268e5831'
+    const { scan, calls } = build({ held: { [USDC_ARB]: '40' }, priced: { [USDC_ARB]: '0.9999' } })
+    expect(scan.support('arb')).toEqual({ enabled: true })
+
+    const found = await scan.listTokens('arb', EVM)
+    expect(found.map((t) => [t.symbol, t.decimals, t.balance.toString(), t.priceUsd?.toString()])).toEqual([['USDC', 6, '40', '0.9999']])
+    expect(calls.balances[0]).toEqual({ chain: 'arb', tokens: KNOWN_TOKENS.arb!.length })
+  })
+
   it("uses each chain's own decimals (USDT is 18 on BNB Chain)", () => {
     const usdt = KNOWN_TOKENS.bsc!.find((t) => t.symbol === 'USDT')!
     const usdc = KNOWN_TOKENS.base!.find((t) => t.symbol === 'USDC')!

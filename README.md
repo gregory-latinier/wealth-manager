@@ -8,7 +8,7 @@ Built to be self-hosted on cheap shared hosting ([o2switch](https://www.o2switch
 
 ## What it does (v1)
 
-- Tracks **crypto addresses**: BTC, ETH, Base and BNB Chain. Native coins plus ERC-20/BEP-20 tokens.
+- Tracks **crypto addresses**: BTC, ETH, Base, BNB Chain, Arbitrum and Solana. Native coins plus ERC-20/BEP-20 tokens on the EVM chains. Solana tracks SOL only, not SPL tokens.
 - Adding an address scans it for tokens worth more than a USD threshold (default about $10). You pick which to track, or add one by contract address.
 - A daily snapshot records every holding, its price and its value in USD and EUR.
 - The dashboard shows the total, the 1-day and 7-day change, the evolution chart, and the holdings of any day.
@@ -31,11 +31,12 @@ Data providers, all keyless by default (see [`docs/providers.md`](docs/providers
 | Need | Provider |
 |---|---|
 | BTC balance | mempool.space |
-| ETH, Base and BNB Chain balances | public JSON-RPC (override with your own endpoint) |
+| ETH, Base, BNB Chain and Arbitrum balances | public JSON-RPC (override with your own endpoint) |
+| SOL balance | public Solana JSON-RPC (override with `SOL_RPC_URL`) |
 | Token prices | DefiLlama (keyless, batched), CoinGecko as fallback |
-| Native prices (BTC, ETH, BNB) | CoinGecko |
+| Native prices (BTC, ETH, BNB, SOL) | CoinGecko |
 | Token scan on Ethereum | Blockscout |
-| Token scan on Base and BNB Chain | A built-in list of popular tokens, read over RPC, priced by DefiLlama. Keyless. Other tokens: add by contract address. |
+| Token scan on Base, BNB Chain and Arbitrum | A built-in list of popular tokens, read over RPC, priced by DefiLlama. Keyless. Other tokens: add by contract address. |
 | Exchange balances | Kraken private API with a read-only key (spot, including staked). OKX is the next adapter. |
 | Exchange prices | Kraken public `AssetPairs` and `Ticker` |
 | Smardex leveraged positions | Read on-chain over the Ethereum RPC. Positions are found from the address's history on Blockscout, then valued by the protocol contract and priced in wstETH by DefiLlama. Keyless. |
@@ -212,6 +213,8 @@ pnpm snapshot:run
 | `ETH_RPC_URL` | no | Comma-separated JSON-RPC URLs for Ethereum. Replaces the public defaults. |
 | `BASE_RPC_URL` | no | Same, for Base. |
 | `BSC_RPC_URL` | no | Same, for BNB Chain. |
+| `ARB_RPC_URL` | no | Same, for Arbitrum. |
+| `SOL_RPC_URL` | no | Same, for Solana. The public endpoint rate limits, so a busy host may want its own. |
 | `COINGECKO_API_KEY` | no | Raises the CoinGecko rate limit. |
 | `MT5_FEED_URL` | no | URL of your accounts-monitoring snapshot, used when none is saved on the MT5 page. |
 | `EXCHANGE_KEY_SECRET` | for exchanges | 32 characters or more (`openssl rand -hex 32`). Encrypts the exchange API keys stored in the database. **Keep it**: if it changes or is lost, saved keys can no longer be read and must be entered again. |

@@ -3,7 +3,7 @@ import { createLimiter, DEFAULT_TIMEOUT_MS, fetchJson, type FetchLike } from './
 import { ProviderError, type EvmChain, type PriceProvider } from './types'
 
 const PROVIDER = 'defillama'
-const CHAIN: Record<EvmChain, string> = { eth: 'ethereum', base: 'base', bsc: 'bsc' }
+const CHAIN: Record<EvmChain, string> = { eth: 'ethereum', base: 'base', bsc: 'bsc', arb: 'arbitrum' }
 // Contracts go in the URL path, so keep each request short.
 const CONTRACTS_PER_REQUEST = 50
 // A price older than this is not trusted as current.

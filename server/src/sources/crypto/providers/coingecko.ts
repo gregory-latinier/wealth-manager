@@ -1,9 +1,9 @@
 import { dec, type Decimal } from '../../../lib/money'
 import { createLimiter, DEFAULT_TIMEOUT_MS, fetchJson, type FetchLike } from './http'
-import { ProviderError, type EvmChain, type PriceProvider } from './types'
+import { ProviderError, type EvmChain, type NativePrices, type PriceProvider } from './types'
 
 const PROVIDER = 'coingecko'
-const PLATFORM: Record<EvmChain, string> = { eth: 'ethereum', base: 'base', bsc: 'binance-smart-chain' }
+const PLATFORM: Record<EvmChain, string> = { eth: 'ethereum', base: 'base', bsc: 'binance-smart-chain', arb: 'arbitrum-one' }
 // With a (demo or paid) key the documented maximum is 515 contracts per request. Stay well below it to keep the URL short.
 const CONTRACTS_PER_REQUEST = 100
 // The keyless free tier answers HTTP 400 (error 10012) to more than one contract per request.
@@ -28,14 +28,15 @@ function asObject(payload: unknown): Record<string, unknown> {
   return payload as Record<string, unknown>
 }
 
-/** Parses `simple/price?ids=bitcoin,ethereum,binancecoin`. Bitcoin and ethereum are required, BNB is not. Exported for tests. */
-export function parseNativePrices(payload: unknown): { btc: Decimal; eth: Decimal; bnb?: Decimal } {
+/** Parses `simple/price?ids=bitcoin,ethereum,binancecoin,solana`. Bitcoin and ethereum are required, BNB and SOL are not. Exported for tests. */
+export function parseNativePrices(payload: unknown): NativePrices {
   const body = asObject(payload)
   const btc = usdPrice(body, 'bitcoin')
   const eth = usdPrice(body, 'ethereum')
   if (!btc || !eth) throw new ProviderError(PROVIDER, 'malformed', 'bitcoin or ethereum price is missing')
   const bnb = usdPrice(body, 'binancecoin')
-  return bnb ? { btc, eth, bnb } : { btc, eth }
+  const sol = usdPrice(body, 'solana')
+  return { btc, eth, ...(bnb ? { bnb } : {}), ...(sol ? { sol } : {}) }
 }
 
 /** Parses `simple/token_price/{platform}`. Unknown contracts are simply absent from the map. Exported for tests. */
@@ -69,7 +70,7 @@ export function createCoinGecko(
 
   return {
     async getNativePrices() {
-      return parseNativePrices(await get('/simple/price?ids=bitcoin,ethereum,binancecoin&vs_currencies=usd'))
+      return parseNativePrices(await get('/simple/price?ids=bitcoin,ethereum,binancecoin,solana&vs_currencies=usd'))
     },
 
     async getTokenPrices(chain, contracts) {

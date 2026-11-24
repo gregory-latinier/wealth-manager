@@ -25,7 +25,7 @@ import {
   setThresholdUsd,
   unignoreToken,
 } from '../sources/crypto/settings'
-import { CHAINS, isChain, isEvmChain, normalizeAddress, normalizeContract } from '../sources/crypto/validate'
+import { CHAINS, EVM_CHAINS, isChain, isEvmChain, normalizeAddress, normalizeContract } from '../sources/crypto/validate'
 
 export interface AdminCryptoOptions {
   /** Overridable for tests. Defaults to Blockscout on Ethereum and a known-token check over RPC on the other chains. */
@@ -173,7 +173,7 @@ export const adminCryptoRoutes: FastifyPluginAsync<AdminCryptoOptions> = async (
       const body = request.body as { contractAddress: string }
       const address = await getAddress(id)
       if (!address) return reply.status(404).send({ error: 'Address not found' })
-      if (!isEvmChain(address.chain)) return reply.status(400).send({ error: 'Tokens can only be tracked on Ethereum, Base and BNB Chain addresses' })
+      if (!isEvmChain(address.chain)) return reply.status(400).send({ error: 'Tokens can only be tracked on Ethereum, Base, BNB Chain and Arbitrum addresses' })
 
       const contract = normalizeContract(body.contractAddress)
       if (!contract) return reply.status(400).send({ error: 'Not a valid contract address' })
@@ -261,7 +261,7 @@ export const adminCryptoRoutes: FastifyPluginAsync<AdminCryptoOptions> = async (
           required: ['chain', 'contractAddress'],
           additionalProperties: false,
           properties: {
-            chain: { type: 'string', enum: ['eth', 'base', 'bsc'] },
+            chain: { type: 'string', enum: [...EVM_CHAINS] },
             contractAddress: { type: 'string', minLength: 1, maxLength: 100 },
           },
         },

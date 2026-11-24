@@ -14,10 +14,15 @@ export class ProviderError extends Error {
   }
 }
 
-export type EvmChain = 'eth' | 'base' | 'bsc'
+export type EvmChain = 'eth' | 'base' | 'bsc' | 'arb'
 
 export interface BtcProvider {
   /** Confirmed balance in BTC. Unconfirmed transactions are ignored. */
+  getBalance(address: string): Promise<Decimal>
+}
+
+export interface SolProvider {
+  /** Finalized balance of the address in SOL. Tokens (SPL) are not read. */
   getBalance(address: string): Promise<Decimal>
 }
 
@@ -46,9 +51,16 @@ export interface EvmProvider {
   getTokenMetadata(chain: EvmChain, contract: string): Promise<TokenMetadata>
 }
 
+/** `bnb` and `sol` are optional on purpose: if the provider omits one, only the addresses on that chain fail, not the whole snapshot. */
+export interface NativePrices {
+  btc: Decimal
+  eth: Decimal
+  bnb?: Decimal
+  sol?: Decimal
+}
+
 export interface PriceProvider {
-  /** `bnb` is optional on purpose: if the provider omits it, only BNB Chain addresses fail, not the whole snapshot. */
-  getNativePrices(): Promise<{ btc: Decimal; eth: Decimal; bnb?: Decimal }>
+  getNativePrices(): Promise<NativePrices>
   /** USD prices by lowercase contract. A contract the provider does not know is absent from the map (unpriced). */
   getTokenPrices(chain: EvmChain, contracts: string[]): Promise<Map<string, Decimal>>
 }

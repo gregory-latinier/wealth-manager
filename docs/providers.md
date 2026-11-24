@@ -123,6 +123,14 @@ Token prices: CoinGecko's keyless tier now accepts **one contract per request** 
 
 BNB Chain RPC: `bsc-dataseed1.binance.org` answered batches from the dev machine. `bsc-rpc.publicnode.com` and `bsc-dataseed.bnbchain.org` timed out there, and `rpc.ankr.com/bsc` needs a key. Set `BSC_RPC_URL` if your host reaches a different one.
 
+## Update: Arbitrum and Solana (Nov 2026)
+
+**Arbitrum** (`arb`) follows Base: ETH is the native coin, the scan uses the built-in token list (`providers/known-tokens.ts`), and token prices come from DefiLlama (`arbitrum:<contract>`) with CoinGecko (`arbitrum-one`) as fallback. The default RPCs are `arb1.arbitrum.io/rpc` and `arbitrum-one-rpc.publicnode.com`, and both answered from the dev machine. Set `ARB_RPC_URL` to use another. Symbols and decimals of the listed tokens were read from the contracts, and they differ per token: USDC, USDC.e and USDT are 6, DAI, WETH and ARB are 18, WBTC is 8. The USDT contract reports its symbol as `USD₮0` on chain, which is why it is listed under that name.
+
+**Solana** (`sol`) tracks the SOL balance only. The balance comes from the JSON-RPC method `getBalance` at `finalized` commitment (default `api.mainnet-beta.solana.com`, `solana-rpc.publicnode.com` is a keyless alternative, set `SOL_RPC_URL` to change it). The public endpoint rate limits, so several wallets on a busy host may want their own endpoint. The SOL price is CoinGecko's `solana`, optional like BNB: if it is missing only Solana addresses fail. A Solana address is a 32 byte key in base58 and is validated by its decoded length, because a Bitcoin legacy address is also base58 but decodes to 25 bytes.
+
+**Not covered:** SPL tokens. Their mint addresses are base58 and case-sensitive, while the token pipeline lowercases every contract, so supporting them is a separate change (token accounts via `getTokenAccountsByOwner`, a mint-keyed price lookup on DefiLlama's `solana:` namespace, and a case-preserving contract normaliser).
+
 
 ## Update: exchange balances (Nov 2026)
 

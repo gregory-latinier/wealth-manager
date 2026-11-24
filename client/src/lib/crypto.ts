@@ -1,9 +1,15 @@
 import { api } from './api'
 
-export type Chain = 'btc' | 'eth' | 'base' | 'bsc'
-export type EvmChain = Exclude<Chain, 'btc'>
+export type Chain = 'btc' | 'eth' | 'base' | 'bsc' | 'arb' | 'sol'
+export type EvmChain = Exclude<Chain, 'btc' | 'sol'>
 
-export const CHAIN_LABEL: Record<Chain, string> = { btc: 'Bitcoin', eth: 'Ethereum', base: 'Base', bsc: 'BNB Chain' }
+export const CHAIN_LABEL: Record<Chain, string> = { btc: 'Bitcoin', eth: 'Ethereum', base: 'Base', bsc: 'BNB Chain', arb: 'Arbitrum', sol: 'Solana' }
+
+/** Chains in alphabetical order of their label, for menus. */
+export const CHAINS_BY_LABEL = (Object.keys(CHAIN_LABEL) as Chain[]).sort((a, b) => CHAIN_LABEL[a].localeCompare(CHAIN_LABEL[b], 'en', { sensitivity: 'base' }))
+
+/** Only EVM addresses hold tokens that can be picked. Bitcoin and Solana track their native coin only. */
+export const isEvmChain = (chain: Chain): chain is EvmChain => chain !== 'btc' && chain !== 'sol'
 
 export interface AddressLastValue {
   usd: string

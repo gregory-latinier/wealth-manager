@@ -4,18 +4,20 @@ import { runSnapshot } from '../../lib/snapshot'
 import type { FxProvider } from '../fx/frankfurter'
 import { createAddress, updateAddress } from './addresses'
 import { createCryptoSource, nativeRef, type CryptoProviders } from './index'
-import { ProviderError, type BtcProvider, type EvmProvider, type PriceProvider } from './providers/types'
+import { ProviderError, type BtcProvider, type EvmProvider, type PriceProvider, type SolProvider } from './providers/types'
 
 const EVM = '0xabcdef0123456789abcdef0123456789abcdef01'
 const EVM_2 = '0x1111111111111111111111111111111111111111'
 const BTC = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'
+const SOL = 'So11111111111111111111111111111111111111112'
 
 const fx: FxProvider = { getUsdPerEur: async () => ({ usdPerEur: dec('1.25'), date: '2026-11-19' }) }
 
 interface Fakes {
   btc: Record<string, string | Error>
   evm: Record<string, string | Error> // key: `${chain}:${address}`
-  prices: { btc: string; eth: string; bnb?: string } | Error
+  sol?: Record<string, string | Error>
+  prices: { btc: string; eth: string; bnb?: string; sol?: string } | Error
 }
 
 function fakeProviders(f: Fakes): CryptoProviders {
@@ -41,11 +43,24 @@ function fakeProviders(f: Fakes): CryptoProviders {
   const prices: PriceProvider = {
     getNativePrices: async () => {
       if (f.prices instanceof Error) throw f.prices
-      return { btc: dec(f.prices.btc), eth: dec(f.prices.eth), bnb: f.prices.bnb ? dec(f.prices.bnb) : undefined }
+      return {
+        btc: dec(f.prices.btc),
+        eth: dec(f.prices.eth),
+        bnb: f.prices.bnb ? dec(f.prices.bnb) : undefined,
+        sol: f.prices.sol ? dec(f.prices.sol) : undefined,
+      }
     },
     getTokenPrices: async () => new Map(),
   }
-  return { btc, evm, prices }
+  const sol: SolProvider = {
+    getBalance: async (address) => {
+      const v = f.sol?.[address]
+      if (v === undefined) throw new Error(`unexpected sol address ${address}`)
+      if (v instanceof Error) throw v
+      return dec(v)
+    },
+  }
+  return { btc, evm, prices, sol }
 }
 
 describe('crypto source (native coins)', () => {
@@ -109,6 +124,47 @@ describe('crypto source (native coins)', () => {
     expect(lines.map((l) => l.sourceRef)).toEqual([nativeRef('eth', EVM)])
     expect(failures.map((f) => f.sourceRef)).toEqual([nativeRef('bsc', EVM)])
     expect(failures[0].reason).toContain('BNB price is missing')
+  })
+
+  it('values Arbitrum in ETH and Solana in SOL', async () => {
+    await createAddress({ chain: 'arb', address: EVM, label: null })
+    await createAddress({ chain: 'sol', address: SOL, label: null })
+    const source = createCryptoSource(
+      fakeProviders({ btc: {}, evm: { [`arb:${EVM}`]: '0.5' }, sol: { [SOL]: '12.5' }, prices: { btc: '60000', eth: '2000', sol: '70' } })
+    )
+
+    const { lines, failures } = await source.collect({ date: '2026-11-19' })
+    expect(failures).toEqual([])
+    expect(lines.map((l) => ({ ref: l.sourceRef, symbol: l.symbol, amount: l.amount.toString(), price: l.priceUsd.toString() }))).toEqual([
+      { ref: nativeRef('arb', EVM), symbol: 'ETH', amount: '0.5', price: '2000' },
+      { ref: nativeRef('sol', SOL), symbol: 'SOL', amount: '12.5', price: '70' },
+    ])
+  })
+
+  it('fails only the Solana address when the SOL price is missing', async () => {
+    await createAddress({ chain: 'eth', address: EVM, label: null })
+    await createAddress({ chain: 'sol', address: SOL, label: null })
+    const source = createCryptoSource(
+      fakeProviders({ btc: {}, evm: { [`eth:${EVM}`]: '1' }, sol: { [SOL]: '12.5' }, prices: { btc: '60000', eth: '2000' } })
+    )
+
+    const { lines, failures } = await source.collect({ date: '2026-11-19' })
+    expect(lines.map((l) => l.sourceRef)).toEqual([nativeRef('eth', EVM)])
+    expect(failures.map((f) => f.sourceRef)).toEqual([nativeRef('sol', SOL)])
+    expect(failures[0].reason).toContain('SOL price is missing')
+  })
+
+  it('fails only the Solana address when its RPC is down, never valuing it at 0', async () => {
+    await createAddress({ chain: 'btc', address: BTC, label: null })
+    await createAddress({ chain: 'sol', address: SOL, label: null })
+    const source = createCryptoSource(
+      fakeProviders({ btc: { [BTC]: '1' }, evm: {}, sol: { [SOL]: new ProviderError('solana-rpc', 'http', 'HTTP 429') }, prices: { btc: '60000', eth: '2000', sol: '70' } })
+    )
+
+    const { lines, failures } = await source.collect({ date: '2026-11-19' })
+    expect(lines.map((l) => l.sourceRef)).toEqual([nativeRef('btc', BTC)])
+    expect(failures.map((f) => f.sourceRef)).toEqual([nativeRef('sol', SOL)])
+    expect(failures[0].reason).toContain('HTTP 429')
   })
 
   it('skips paused addresses entirely, without calling the providers (SC6)', async () => {
