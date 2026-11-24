@@ -129,6 +129,7 @@ describe('tracked tokens', () => {
     expect(res.statusCode).toBe(201)
     expect(res.json()).toMatchObject({ symbol: 'OBS', priced: false })
     expect(res.json().warning).toContain('No price is known')
+    expect(res.json().warning).toContain('carried forward')
   })
 
   it('still adds the token when only the price check fails, with priced unknown', async () => {
@@ -207,7 +208,7 @@ describe('tracked tokens', () => {
       expect(addr.lastValue).toEqual({ usd: '4081.77846221', eur: '3265.42276977', date: '2026-11-19', stale: false })
     })
 
-    it('values an unpriced token at 0 and keeps the snapshot complete', async () => {
+    it('reports an unpriced token as a failure, never as a zero value that would drop it from the net worth', async () => {
       const p = fakes({
         evm: { [`eth:${EVM}`]: { native: '1', tokens: { [OBSCURE]: '500' } } },
         known: {},
@@ -217,10 +218,26 @@ describe('tracked tokens', () => {
       const id = await addAddress('eth', EVM)
       await addToken(id, OBSCURE)
 
-      const { lines } = await createCryptoSource(p).collect({ date: '2026-11-19' })
-      const obs = lines.find((l) => l.symbol === 'OBS')!
-      expect(obs.priceUsd.toString()).toBe('0')
-      expect(obs.amount.toString()).toBe('500')
+      const { lines, failures } = await createCryptoSource(p).collect({ date: '2026-11-19' })
+      expect(lines.map((l) => l.symbol)).toEqual(['ETH']) // the native coin is still valued
+      expect(failures.map((f) => f.sourceRef)).toEqual([tokenRef('eth', EVM, OBSCURE)])
+      expect(failures[0].reason).toContain('no USD price')
+    })
+
+    it('values an unpriced token at 0 when its balance is empty, so a dead token does not keep the snapshot partial', async () => {
+      const p = fakes({
+        evm: { [`eth:${EVM}`]: { native: '1', tokens: { [OBSCURE]: '0' } } },
+        known: {},
+        metadata: { [OBSCURE]: { symbol: 'OBS', decimals: 9 } },
+      })
+      await setup(p)
+      const id = await addAddress('eth', EVM)
+      await addToken(id, OBSCURE)
+
+      const { lines, failures } = await createCryptoSource(p).collect({ date: '2026-11-19' })
+      expect(failures).toEqual([])
+      expect(lines.find((l) => l.symbol === 'OBS')).toMatchObject({ priceUsd: expect.anything() })
+      expect(lines.find((l) => l.symbol === 'OBS')!.priceUsd.toString()).toBe('0')
     })
 
     it('a failing token is reported alone while the native coin and other tokens are still valued (SC9)', async () => {
