@@ -100,7 +100,33 @@ export function groupLabel(l: BreakdownLine, grouping: Grouping): string {
 export const groupColor = (grouping: Grouping, key: string): string | undefined =>
   grouping === 'category' ? categoryColor(key) : grouping === 'status' ? statusColor(key) : undefined
 
-const COST_URL = '/api/admin/cost-basis'
+export interface PnlTotal {
+  pnlUsd: number
+  /** Percent of the cost of the lines counted. Null when that cost is 0. */
+  pnlPct: number | null
+  /** Lines that have a cost, out of all the lines. The total only covers the first. */
+  counted: number
+  total: number
+}
+
+/**
+ * Unrealised gain of a set of lines. Only lines with an entered cost are counted: a line without one has no known gain, and counting
+ * it as zero would hide that. Null when no line has a cost. Display only, the exact figures stay decimal strings per line.
+ */
+export function pnlTotal(lines: BreakdownLine[]): PnlTotal | null {
+  let pnl = 0
+  let cost = 0
+  let counted = 0
+  for (const l of lines) {
+    if (l.pnlUsd === null || l.costUsd === null) continue
+    pnl += Number(l.pnlUsd)
+    cost += Number(l.costUsd)
+    counted += 1
+  }
+  return counted === 0 ? null : { pnlUsd: pnl, pnlPct: cost === 0 ? null : (pnl / cost) * 100, counted, total: lines.length }
+}
+
+const COST_URL ='/api/admin/cost-basis'
 export const costApi = {
   set: (sourceType: string, sourceRef: string, costUsd: string) => api(COST_URL, { method: 'PUT', body: { sourceType, sourceRef, costUsd } }),
   clear: (sourceType: string, sourceRef: string) =>
