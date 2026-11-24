@@ -123,6 +123,14 @@ Token prices: CoinGecko's keyless tier now accepts **one contract per request** 
 
 BNB Chain RPC: `bsc-dataseed1.binance.org` answered batches from the dev machine. `bsc-rpc.publicnode.com` and `bsc-dataseed.bnbchain.org` timed out there, and `rpc.ankr.com/bsc` needs a key. Set `BSC_RPC_URL` if your host reaches a different one.
 
+## Update: Arbitrum and Solana (Nov 2026)
+
+**Arbitrum** (`arb`) follows Base: ETH is the native coin, the scan uses the built-in token list (`providers/known-tokens.ts`), and token prices come from DefiLlama (`arbitrum:<contract>`) with CoinGecko (`arbitrum-one`) as fallback. The default RPCs are `arb1.arbitrum.io/rpc` and `arbitrum-one-rpc.publicnode.com`, and both answered from the dev machine. Set `ARB_RPC_URL` to use another. Symbols and decimals of the listed tokens were read from the contracts, and they differ per token: USDC, USDC.e and USDT are 6, DAI, WETH and ARB are 18, WBTC is 8. The USDT contract reports its symbol as `USD₮0` on chain, which is why it is listed under that name.
+
+**Solana** (`sol`) tracks the SOL balance only. The balance comes from the JSON-RPC method `getBalance` at `finalized` commitment (default `api.mainnet-beta.solana.com`, `solana-rpc.publicnode.com` is a keyless alternative, set `SOL_RPC_URL` to change it). The public endpoint rate limits, so several wallets on a busy host may want their own endpoint. The SOL price is CoinGecko's `solana`, optional like BNB: if it is missing only Solana addresses fail. A Solana address is a 32 byte key in base58 and is validated by its decoded length, because a Bitcoin legacy address is also base58 but decodes to 25 bytes.
+
+**Not covered:** SPL tokens. Their mint addresses are base58 and case-sensitive, while the token pipeline lowercases every contract, so supporting them is a separate change (token accounts via `getTokenAccountsByOwner`, a mint-keyed price lookup on DefiLlama's `solana:` namespace, and a case-preserving contract normaliser).
+
 
 ## Update: exchange balances (Nov 2026)
 
@@ -234,6 +242,16 @@ Source type `mt5` (`server/src/sources/mt5/`). The accounts to count are the `Mt
 - **Balance, not equity:** floating profit and loss of open trades is not counted.
 - **Failure behaviour:** a row whose `status` is not `ok` (the collector writes a balance of 0 for it), with no numeric balance, or with an `updatedAt` older than 48 hours fails only that account, which is carried forward as stale. A feed that cannot be read (timeout, HTTP error, not JSON, no `allAccounts`) fails every tracked account the same way. An account missing from the feed fails too. A real balance of 0 stays a 0 line.
 - **Not covered:** accounts in other currencies, equity and open positions, per-trade history, multiple feeds.
+
+## Update: GoMining (Nov 2026)
+
+Source type `gomining` (`server/src/sources/gomining/`). GoMining has no documented public API: miners and wallet balances are off-chain in the owner's account, so everything is typed in and no GoMining credential is stored. Managed on the GoMining page (`/api/admin/gomining`).
+
+- **Miners:** the `GominingMiner` table (migration 019: name, TH, active). Line `<miner id>:TH`, symbol `TH`, amount = TH, price = the value of one TH. The id never changes, so renaming or upgrading a miner keeps its history.
+- **Value of 1 TH:** `gomining.thPrice` and `gomining.thCurrency` rows of the `Setting` table. EUR is converted with `SnapshotContext.usdPerEur`. It is a value the owner sets, there is no market feed for it.
+- **Wallet:** `gomining.btc` and `gomining.gmt` rows of `Setting`, as plain decimals (8 decimals). Lines `wallet:BTC` (price from `getNativePrices().btc`) and `wallet:GMT` (price from `getTokenPrices('eth', [0x7ddc52c4de30e94be3a6a0a2b259b2850f421989])`). A balance of 0 gives no line and no price request.
+- **Failure behaviour:** no value per TH, EUR without a rate, a BTC price lookup that throws, or a GMT that no provider prices each fail only the lines concerned, which are carried forward as stale. Nothing is ever valued at 0.
+- **Not covered:** other wallet assets (USDT, ETH, BNB...), reading GoMining, rewards that accrue between two edits, a per-miner price.
 
 ## Update: settings and menu (Nov 2026)
 

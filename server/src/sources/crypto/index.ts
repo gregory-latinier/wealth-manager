@@ -5,8 +5,9 @@ import { createBtcProvider } from './providers/btc'
 import { createCoinGecko } from './providers/coingecko'
 import { createPriceProvider } from './providers/defillama'
 import { createEvmRpc } from './providers/evm-rpc'
-import type { BtcProvider, EvmChain, EvmProvider, PriceProvider } from './providers/types'
-import { isEvmChain, type Chain } from './validate'
+import { createSolanaRpc } from './providers/solana'
+import type { BtcProvider, EvmChain, EvmProvider, NativePrices, PriceProvider, SolProvider } from './providers/types'
+import { EVM_CHAINS, isEvmChain, type Chain } from './validate'
 
 export const CRYPTO_SOURCE_ID = 'crypto'
 
@@ -14,6 +15,18 @@ export interface CryptoProviders {
   btc: BtcProvider
   evm: EvmProvider
   prices: PriceProvider
+  /** Optional so a caller that never tracks Solana does not have to provide one. A Solana address then fails, it is not valued at 0. */
+  sol?: SolProvider
+}
+
+/** Which native coin pays for gas on an EVM chain, and so which price values the balance. Base and Arbitrum use ETH. */
+const GAS_PRICE_KEY: Record<EvmChain, 'eth' | 'bnb'> = { eth: 'eth', base: 'eth', arb: 'eth', bsc: 'bnb' }
+const PRICE_NAME: Record<'eth' | 'bnb' | 'sol', string> = { eth: 'ETH', bnb: 'BNB', sol: 'SOL' }
+
+function nativePrice(native: NativePrices, key: 'eth' | 'bnb' | 'sol') {
+  const price = native[key]
+  if (!price) throw new Error(`price lookup failed: ${PRICE_NAME[key]} price is missing`)
+  return price
 }
 
 interface AssetRow {
@@ -78,7 +91,7 @@ export function createCryptoSource(providers: CryptoProviders): SourceType {
 
       // Native prices cover every address. If that call fails nothing can be valued, so every entry is
       // a failure (the engine carries each one forward) rather than a line priced at 0.
-      let native: { btc: Decimal; eth: Decimal; bnb?: Decimal }
+      let native: NativePrices
       try {
         native = await providers.prices.getNativePrices()
       } catch (err) {
@@ -89,7 +102,7 @@ export function createCryptoSource(providers: CryptoProviders): SourceType {
       // Token prices, one call per chain. A failed lookup fails that chain's tokens only. A contract the
       // provider does not know is valued at 0 (the owner was warned when adding it, see SC5).
       const tokenPrices = new Map<EvmChain, Map<string, Decimal> | string>()
-      for (const chain of ['eth', 'base', 'bsc'] as const) {
+      for (const chain of EVM_CHAINS) {
         const contracts = holders.filter((h) => h.chain === chain).flatMap((h) => h.tokens.map((t) => t.contractAddress!))
         if (contracts.length === 0) continue
         try {
@@ -102,10 +115,19 @@ export function createCryptoSource(providers: CryptoProviders): SourceType {
       await Promise.all(
         holders.map(async (holder) => {
           try {
-            if (!isEvmChain(holder.chain)) {
+            if (holder.chain === 'btc') {
               const amount = await providers.btc.getBalance(holder.address)
               if (holder.native) {
                 lines.push({ sourceRef: nativeRef('btc', holder.address), symbol: holder.native.symbol, amount, priceUsd: native.btc })
+              }
+              return
+            }
+            if (holder.chain === 'sol') {
+              if (!providers.sol) throw new Error('Solana is not configured')
+              // The balance is read before the price is checked, so a missing SOL price is reported as such and not as an RPC failure.
+              const amount = await providers.sol.getBalance(holder.address)
+              if (holder.native) {
+                lines.push({ sourceRef: nativeRef('sol', holder.address), symbol: holder.native.symbol, amount, priceUsd: nativePrice(native, 'sol') })
               }
               return
             }
@@ -118,9 +140,8 @@ export function createCryptoSource(providers: CryptoProviders): SourceType {
               holder.tokens.map((t) => ({ contract: t.contractAddress!, decimals: t.decimals }))
             )
             if (holder.native) {
-              // ETH on Ethereum and Base, BNB on BNB Chain. A missing BNB price fails this address only.
-              const priceUsd = chain === 'bsc' ? native.bnb : native.eth
-              if (!priceUsd) throw new Error('price lookup failed: BNB price is missing')
+              // ETH on Ethereum, Base and Arbitrum, BNB on BNB Chain. A missing BNB price fails this address only.
+              const priceUsd = nativePrice(native, GAS_PRICE_KEY[chain])
               lines.push({ sourceRef: nativeRef(chain, holder.address), symbol: holder.native.symbol, amount: balances.native, priceUsd })
             }
 
@@ -153,5 +174,5 @@ export function createCryptoSource(providers: CryptoProviders): SourceType {
 
 /** The crypto source wired to the real providers. */
 export function createDefaultCryptoSource(): SourceType {
-  return createCryptoSource({ btc: createBtcProvider(), evm: createEvmRpc(), prices: createPriceProvider(createCoinGecko()) })
+  return createCryptoSource({ btc: createBtcProvider(), evm: createEvmRpc(), sol: createSolanaRpc(), prices: createPriceProvider(createCoinGecko()) })
 }

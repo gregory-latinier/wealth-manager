@@ -1,15 +1,48 @@
-import { normalizeAddress, normalizeContract } from './validate'
+import { isChain, isEvmChain, normalizeAddress, normalizeContract } from './validate'
 
+// Wrapped SOL mint: a real 32 byte key. The system program is 32 zero bytes, written as 32 "1".
+const SOLANA = 'So11111111111111111111111111111111111111112'
+const SYSTEM_PROGRAM = '11111111111111111111111111111111'
 const EVM = '0xAbCdEf0123456789aBcDeF0123456789AbCdEf01'
 const LEGACY = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'
 const P2SH = '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy'
 const BECH32 = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq'
 
 describe('normalizeAddress', () => {
-  it('lowercases EVM addresses on eth, base and bsc', () => {
+  it('lowercases EVM addresses on eth, base, bsc and arb', () => {
     expect(normalizeAddress('eth', EVM)).toBe(EVM.toLowerCase())
     expect(normalizeAddress('base', ` ${EVM} `)).toBe(EVM.toLowerCase())
     expect(normalizeAddress('bsc', EVM)).toBe(EVM.toLowerCase())
+    expect(normalizeAddress('arb', EVM)).toBe(EVM.toLowerCase())
+  })
+
+  it('keeps the case of a Solana address, which is base58', () => {
+    expect(normalizeAddress('sol', SOLANA)).toBe(SOLANA)
+    expect(normalizeAddress('sol', ` ${SOLANA} `)).toBe(SOLANA)
+    expect(normalizeAddress('sol', SYSTEM_PROGRAM)).toBe(SYSTEM_PROGRAM)
+  })
+
+  it.each([
+    ['an EVM address', EVM],
+    ['a Bitcoin legacy address (base58, but 25 bytes)', LEGACY],
+    ['a bech32 address', BECH32],
+    ['base58 with an ambiguous character (0)', SOLANA.slice(0, -1) + '0'],
+    ['one character too short (31 bytes)', SOLANA.slice(1)],
+    ['one character too long (33 bytes)', SOLANA + 'A'],
+    ['empty', ''],
+  ])('rejects a Solana address that is %s', (_name, value) => {
+    expect(normalizeAddress('sol', value)).toBeNull()
+  })
+
+  it('does not accept a Solana address on another chain', () => {
+    expect(normalizeAddress('btc', SOLANA)).toBeNull()
+    expect(normalizeAddress('eth', SOLANA)).toBeNull()
+    expect(normalizeAddress('arb', SOLANA)).toBeNull()
+  })
+
+  it('knows which chains are EVM', () => {
+    expect(['btc', 'eth', 'base', 'bsc', 'arb', 'sol'].filter((c) => isChain(c) && isEvmChain(c))).toEqual(['eth', 'base', 'bsc', 'arb'])
+    expect(isChain('doge')).toBe(false)
   })
 
   it.each([

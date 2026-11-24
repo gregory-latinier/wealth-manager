@@ -7,6 +7,7 @@ import Crowdlending from './pages/admin/Crowdlending'
 import Mt5 from './pages/admin/Mt5'
 import Crypto from './pages/admin/Crypto'
 import Exchanges from './pages/admin/Exchanges'
+import Gomining from './pages/admin/Gomining'
 import Settings from './pages/admin/Settings'
 import Smardex from './pages/admin/Smardex'
 import Staking from './pages/admin/Staking'
@@ -89,6 +90,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <Mt5 />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/gomining"
+            element={
+              <RequireAuth>
+                <Gomining />
               </RequireAuth>
             }
           />

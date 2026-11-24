@@ -34,7 +34,7 @@ import AdminNav from '../../components/AdminNav'
 import TokenScanDialog from '../../components/TokenScanDialog'
 import TrackedTokensDialog from '../../components/TrackedTokensDialog'
 import { ApiError } from '../../lib/api'
-import { CHAIN_LABEL, cryptoApi, formatMoney, shortAddress, type Chain, type CryptoAddress } from '../../lib/crypto'
+import { CHAIN_LABEL, CHAINS_BY_LABEL, cryptoApi, formatMoney, isEvmChain, shortAddress, type Chain, type CryptoAddress } from '../../lib/crypto'
 
 const errorText = (err: unknown) => (err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
 
@@ -76,7 +76,7 @@ function AddAddressDialog({ open, onClose, onAdded }: { open: boolean; onClose: 
         <Stack spacing={2} sx={{ pt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <TextField select label="Chain" value={chain} onChange={(e) => setChain(e.target.value as Chain)}>
-            {(Object.keys(CHAIN_LABEL) as Chain[]).map((c) => (
+            {CHAINS_BY_LABEL.map((c) => (
               <MenuItem key={c} value={c}>
                 {CHAIN_LABEL[c]}
               </MenuItem>
@@ -89,7 +89,13 @@ function AddAddressDialog({ open, onClose, onAdded }: { open: boolean; onClose: 
             required
             autoFocus
             slotProps={{ htmlInput: { maxLength: 200, spellCheck: false } }}
-            helperText={chain === 'btc' ? 'A plain address, not an xpub.' : 'Starts with 0x. Tokens are picked after the address is added.'}
+            helperText={
+              chain === 'btc'
+                ? 'A plain address, not an xpub.'
+                : chain === 'sol'
+                  ? 'A base58 wallet address. Only the SOL balance is tracked, not SPL tokens.'
+                  : 'Starts with 0x. Tokens are picked after the address is added.'
+            }
           />
           <TextField label="Label (optional)" value={label} onChange={(e) => setLabel(e.target.value)} slotProps={{ htmlInput: { maxLength: 100 } }} />
         </Stack>
@@ -264,7 +270,7 @@ export default function Crypto() {
             No address yet
           </Typography>
           <Typography color="text.secondary" sx={{ maxWidth: 420, mx: 'auto', mb: 3 }}>
-            Add a Bitcoin, Ethereum, Base or BNB Chain address to start tracking it. Only the public address is needed, never a key or seed phrase.
+            Add a Bitcoin, Ethereum, Base, BNB Chain, Arbitrum or Solana address to start tracking it. Only the public address is needed, never a key or seed phrase.
           </Typography>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAdding(true)}>
             Add address
@@ -328,7 +334,7 @@ export default function Crypto() {
                     />
                   </TableCell>
                   <TableCell align="right">
-                    {a.chain !== 'btc' && (
+                    {isEvmChain(a.chain) && (
                       <IconButton aria-label="Tracked tokens" onClick={() => setManaging(a)}>
                         <TokenIcon />
                       </IconButton>
@@ -350,7 +356,7 @@ export default function Crypto() {
       <AddAddressDialog open={adding} onClose={() => setAdding(false)} onAdded={(a) => {
           void load()
           // A new EVM address goes straight to token selection.
-          if (a.chain !== 'btc') setScanning({ ...a, lastValue: null })
+          if (isEvmChain(a.chain)) setScanning({ ...a, lastValue: null })
         }}
       />
       <TrackedTokensDialog

@@ -28,6 +28,8 @@ function describeRef(line: BreakdownLine): string {
   if (line.sourceType === 'crowdlending') return 'Crowdlending loan'
   // MT5 refs are `<login>:EUR|USD`. The account name is not in the snapshot line, so the login is what can be shown.
   if (line.sourceType === 'mt5') return `MT5 account ${line.sourceRef.split(':')[0]}`
+  // GoMining refs are `<miner id>:TH` for a miner, and `wallet:BTC` or `wallet:GMT` for the wallet. The miner name is not in the snapshot line.
+  if (line.sourceType === 'gomining') return line.sourceRef.startsWith('wallet:') ? 'GoMining wallet' : 'GoMining miner'
   // Aave refs are `<address>:<reserve id>:supply|debt`. A debt line has a negative amount, so "Borrowed" is enough to read it.
   if (line.sourceType === 'aave') {
     const [owner, , side] = line.sourceRef.split(':')
@@ -36,7 +38,7 @@ function describeRef(line: BreakdownLine): string {
   const [chain, address] = line.sourceRef.split(':')
   // Exchange refs are `kraken:<account id>:BTC`. The account id means nothing to a reader, so only the exchange is shown.
   if (line.sourceType === 'exchange') return EXCHANGE_NAMES[chain] ?? line.sourceRef
-  const name = { btc: 'Bitcoin', eth: 'Ethereum', base: 'Base', bsc: 'BNB Chain' }[chain]
+  const name = { btc: 'Bitcoin', eth: 'Ethereum', base: 'Base', bsc: 'BNB Chain', arb: 'Arbitrum', sol: 'Solana' }[chain]
   return name && address ? `${name} · ${shortAddress(address)}` : line.sourceRef
 }
 
@@ -129,7 +131,7 @@ function LineRow({ line, currency, total, nested }: { line: BreakdownLine; curre
 // Every value here is real text in a table, so the breakdown is also the table view of the data.
 // Symbols and refs come from stored provider data and are rendered as text, never as HTML.
 export default function Breakdown({ lines, currency, grouping }: { lines: BreakdownLine[]; currency: Currency; grouping: Grouping }) {
-  // Which groups are open, per grouping. By type opens everything (there are few groups), by asset starts closed.
+  // Which groups are open, per grouping. By category and by type open everything (there are few groups), by asset starts closed.
   const [toggled, setToggled] = useState<Record<string, boolean>>({})
 
   if (lines.length === 0) return <Typography color="text.secondary">No holdings in this snapshot.</Typography>
@@ -137,10 +139,10 @@ export default function Breakdown({ lines, currency, grouping }: { lines: Breakd
   const groups = groupLines(lines, currency, grouping)
   // Shares are of what is held. Dividing by the net worth would push every share past 100% as soon as something is borrowed.
   const total = groups.reduce((sum, g) => sum + Math.max(g.value, 0), 0)
-  const isOpen = (g: Group) => toggled[`${grouping}:${g.key}`] ?? grouping === 'type'
+  const isOpen = (g: Group) => toggled[`${grouping}:${g.key}`] ?? grouping !== 'asset'
   const toggle = (g: Group) => setToggled((t) => ({ ...t, [`${grouping}:${g.key}`]: !isOpen(g) }))
   // Only groups with a row of their own can be open. A single-line asset has nothing to collapse.
-  const expandable = groups.filter((g) => grouping === 'type' || g.lines.length > 1)
+  const expandable = groups.filter((g) => grouping !== 'asset' || g.lines.length > 1)
   const anyOpen = expandable.some(isOpen)
   const allOpen = expandable.every(isOpen)
   const setAll = (open: boolean) => setToggled((t) => ({ ...t, ...Object.fromEntries(expandable.map((g) => [`${grouping}:${g.key}`, open])) }))
@@ -158,7 +160,7 @@ export default function Breakdown({ lines, currency, grouping }: { lines: Breakd
           <TableRow>
             <TableCell>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                {grouping === 'type' ? 'Type' : 'Asset'}
+                {{ asset: 'Asset', category: 'Category', type: 'Type' }[grouping]}
                 {/* The spans keep the tooltips working while a button is disabled. */}
                 <Tooltip title="Expand all">
                   <span>
@@ -191,7 +193,7 @@ export default function Breakdown({ lines, currency, grouping }: { lines: Breakd
             const open = isOpen(g)
             const share = total > 0 ? (g.value / total) * 100 : 0
             const staleCount = g.lines.filter((l) => l.stale).length
-            // By asset every line is the same coin, so the amounts add up. By type they are different assets and do not.
+            // By asset every line is the same coin, so the amounts add up. By category or type they are different assets and do not.
             const amount = grouping === 'asset' ? g.lines.reduce((sum, l) => sum + Number(l.amount), 0) : null
             return (
               <Fragment key={g.key}>

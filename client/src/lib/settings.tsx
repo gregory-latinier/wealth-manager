@@ -3,7 +3,7 @@ import { api } from './api'
 import { useAuth } from './auth'
 
 /** Pages that can be hidden from the menu. Same list and order as the server. */
-export type Section = 'crypto' | 'exchanges' | 'smardex' | 'staking' | 'aave' | 'bank' | 'stocks' | 'crowdlending' | 'mt5'
+export type Section = 'crypto' | 'exchanges' | 'smardex' | 'staking' | 'aave' | 'bank' | 'stocks' | 'crowdlending' | 'mt5' | 'gomining'
 
 interface SettingsPayload {
   sections: Section[]

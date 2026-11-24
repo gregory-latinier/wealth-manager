@@ -6,6 +6,7 @@ export default function GroupingToggle({ value, onChange }: { value: Grouping; o
   return (
     <ToggleButtonGroup size="small" exclusive value={value} onChange={(_, v: Grouping | null) => v && onChange(v)} aria-label="Group holdings by">
       <ToggleButton value="asset">By asset</ToggleButton>
+      <ToggleButton value="category">By category</ToggleButton>
       <ToggleButton value="type">By type</ToggleButton>
     </ToggleButtonGroup>
   )
