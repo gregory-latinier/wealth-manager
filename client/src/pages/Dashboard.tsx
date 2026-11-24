@@ -11,6 +11,7 @@ import { Link as RouterLink } from 'react-router-dom'
 import AdminNav from '../components/AdminNav'
 import Allocation from '../components/Allocation'
 import Breakdown from '../components/Breakdown'
+import OrphanCosts from '../components/OrphanCosts'
 import CategoryCards from '../components/CategoryCards'
 import GroupingToggle from '../components/GroupingToggle'
 import NetWorthChart from '../components/NetWorthChart'
@@ -246,6 +247,7 @@ export default function Dashboard() {
               </Stack>
             </Stack>
             {data.breakdown && <Breakdown lines={data.breakdown.lines} currency={currency} grouping={grouping} onCostChange={() => setReload((n) => n + 1)} />}
+            <OrphanCosts costs={data.orphanCosts} onRemoved={() => setReload((n) => n + 1)} />
           </Paper>
         </Stack>
       )}

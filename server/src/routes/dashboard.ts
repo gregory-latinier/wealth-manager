@@ -2,7 +2,7 @@ import { FastifyPluginAsync } from 'fastify'
 import { query } from '../db/index'
 import { requireAuth } from '../lib/auth'
 import { dec, fixed, VALUE_DP } from '../lib/money'
-import { COST_KEY, costBasisMap, pnlOf } from '../sources/cost-basis'
+import { COST_KEY, costBasisMap, orphanCosts, pnlOf } from '../sources/cost-basis'
 import { lineMeta, withCost } from '../sources/meta'
 
 interface SnapshotRow {
@@ -68,7 +68,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
       const { date } = request.query as { date?: string }
 
       const series = (await query<SnapshotRow>(`SELECT ${SNAPSHOT_COLUMNS} FROM "Snapshot" ORDER BY "date"`)).rows
-      if (series.length === 0) return { latest: null, change: { day: null, week: null }, series: [], breakdown: null }
+      if (series.length === 0) return { latest: null, change: { day: null, week: null }, series: [], breakdown: null, orphanCosts: [] }
 
       const latest = series[series.length - 1]
       const byDate = new Map(series.map((s) => [s.date, s]))
@@ -99,7 +99,8 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
       const costs = await costBasisMap()
       const lines = rows.map((l) => {
         const meta = lineMeta(l.sourceType, l.sourceRef, l.valueUsd)
-        const pnl = pnlOf(l.valueUsd, costs.get(COST_KEY(l.sourceType, l.sourceRef)))
+        // The rate of the snapshot shown, so a line's two currencies agree with each other.
+        const pnl = pnlOf(l.valueUsd, l.valueEur, costs.get(COST_KEY(l.sourceType, l.sourceRef)), selected.usdPerEur)
         return { ...l, ...meta, ...pnl, status: withCost(meta.status, pnl.pnlUsd) }
       })
 
@@ -108,6 +109,8 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
         change: { day: changeSince(1), week: changeSince(7) },
         series: series.map((s) => ({ date: s.date, totalUsd: s.totalUsd, totalEur: s.totalEur, status: s.status })),
         breakdown: { date: selected.date, status: selected.status, lines },
+        // Costs whose position is no longer in the latest snapshot, so they can be seen and removed.
+        orphanCosts: await orphanCosts(latest.date),
       }
     }
   )

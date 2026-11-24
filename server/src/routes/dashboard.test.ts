@@ -54,7 +54,7 @@ describe('GET /api/dashboard', () => {
   it('returns an empty, valid shape with no snapshot (SC10)', async () => {
     const res = await get()
     expect(res.statusCode).toBe(200)
-    expect(res.json()).toEqual({ latest: null, change: { day: null, week: null }, series: [], breakdown: null })
+    expect(res.json()).toEqual({ latest: null, change: { day: null, week: null }, series: [], breakdown: null, orphanCosts: [] })
   })
 
   it('returns totals and no change figures with a single snapshot (SC10)', async () => {
