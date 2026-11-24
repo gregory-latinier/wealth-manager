@@ -10,6 +10,7 @@ import { healthRoutes } from './routes/health'
 import { authRoutes } from './routes/auth'
 import { dashboardRoutes } from './routes/dashboard'
 import { adminAaveRoutes, type AdminAaveOptions } from './routes/admin-aave'
+import { pendingMigrations } from './db/pending-migrations'
 import { adminBankRoutes } from './routes/admin-bank'
 import { adminCostBasisRoutes } from './routes/admin-cost-basis'
 import { adminCrowdlendingRoutes } from './routes/admin-crowdlending'
@@ -112,6 +113,12 @@ export async function start() {
   try {
     await query('SELECT 1')
     app.log.info('database connection ok')
+    // A new table that was never created shows up as a 500 on some page, far from its cause. Say it here instead, and leave the
+    // database alone: running migrations is a decision for the owner.
+    const pending = await pendingMigrations()
+    if (pending && pending.length > 0) {
+      app.log.warn({ pending }, `${pending.length} database migration(s) not applied: run "pnpm db:migrate" (or migrate:prod). Some pages will fail until then.`)
+    }
   } catch (err) {
     app.log.error({ err }, 'database connection FAILED, check DATABASE_URL and that the user has access to the database')
   }
