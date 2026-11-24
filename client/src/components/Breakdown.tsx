@@ -3,10 +3,12 @@ import ChevronIcon from '@mui/icons-material/ChevronRight'
 import CollapseAllIcon from '@mui/icons-material/UnfoldLessOutlined'
 import ExpandAllIcon from '@mui/icons-material/UnfoldMoreOutlined'
 import WarningIcon from '@mui/icons-material/WarningAmberOutlined'
+import EditIcon from '@mui/icons-material/EditOutlined'
 import { Fragment, useState } from 'react'
 import { shortAddress } from '../lib/crypto'
+import CostDialog from './CostDialog'
 import { VIOLET } from '../theme'
-import { groupKey, groupLabel, statusColor, statusLabel, statusOf, type BreakdownLine, type Currency, type Grouping, type Status } from '../lib/dashboard'
+import { groupKey, groupLabel, statusColor, statusLabel, type BreakdownLine, type Currency, type Grouping, type Status } from '../lib/dashboard'
 import { useMoney } from '../lib/privacy'
 
 const EXCHANGE_NAMES: Record<string, string> = { kraken: 'Kraken', okx: 'OKX' }
@@ -91,7 +93,43 @@ function ShareBar({ share }: { share: number }) {
   )
 }
 
-const staleChip = (staleSince: string | null) => (
+/** Gain or loss of a position against its entered cost, with an edit button. Without a cost, the button invites to enter one. */
+function PnlCell({ line, onEdit }: { line: BreakdownLine; onEdit: (line: BreakdownLine) => void }) {
+  const { money } = useMoney()
+  const pnl = line.pnlUsd
+  const color = pnl === null ? undefined : Number(pnl) < 0 ? 'error.main' : Number(pnl) > 0 ? 'success.main' : undefined
+  return (
+    <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}>
+      {pnl === null ? (
+        <Tooltip title="Enter what you paid to see the gain or loss">
+          <IconButton size="small" onClick={() => onEdit(line)} aria-label={`Set the cost of ${line.symbol}`}>
+            <EditIcon fontSize="inherit" />
+          </IconButton>
+        </Tooltip>
+      ) : (
+        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{ textAlign: 'right' }}>
+            <Typography variant="body2" sx={{ color }}>
+              {Number(pnl) > 0 ? '+' : ''}
+              {money(pnl, 'USD')}
+            </Typography>
+            {line.pnlPct !== null && (
+              <Typography variant="caption" sx={{ color }}>
+                {Number(line.pnlPct) > 0 ? '+' : ''}
+                {line.pnlPct}%
+              </Typography>
+            )}
+          </Box>
+          <IconButton size="small" onClick={() => onEdit(line)} aria-label={`Change the cost of ${line.symbol}`}>
+            <EditIcon fontSize="inherit" />
+          </IconButton>
+        </Box>
+      )}
+    </TableCell>
+  )
+}
+
+const staleChip =(staleSince: string | null) => (
   <Tooltip title="The last attempt to read this failed, so the previous value was kept.">
     <Chip size="small" variant="outlined" icon={<WarningIcon />} label={`Stale since ${staleSince ?? 'unknown'}`} sx={{ ml: 1 }} />
   </Tooltip>
@@ -116,7 +154,23 @@ const fromCell = (extra: number) => ({ xs: `${CELL_PAD.xs + extra}px`, sm: `${CE
  * and a faint background. `aligned` lines are not in a group, but other rows are, so their text is lined up with the group labels.
  * By asset a nested line is the same coin as its group, so it is named by where it is held instead of repeating the symbol.
  */
-function LineRow({ line, currency, total, nested, aligned = false, grouping }: { line: BreakdownLine; currency: Currency; total: number; nested: boolean; aligned?: boolean; grouping: Grouping }) {
+function LineRow({
+  line,
+  currency,
+  total,
+  nested,
+  aligned = false,
+  grouping,
+  onEdit,
+}: {
+  line: BreakdownLine
+  currency: Currency
+  total: number
+  nested: boolean
+  aligned?: boolean
+  grouping: Grouping
+  onEdit: (line: BreakdownLine) => void
+}) {
   const { money } = useMoney()
   const amountValue = currency === 'USD' ? line.valueUsd : line.valueEur
   const share = total > 0 ? (Number(amountValue) / total) * 100 : 0
@@ -147,7 +201,7 @@ function LineRow({ line, currency, total, nested, aligned = false, grouping }: {
           </Typography>
         )}
         {/* Under a status group the group row already says it, so the tag is only for the other groupings. */}
-        {grouping !== 'status' && statusTag(statusOf(line))}
+        {grouping !== 'status' && statusTag(line.status)}
         {line.stale && staleChip(line.staleSince)}
       </TableCell>
       <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', display: { xs: 'none', sm: 'table-cell' } }}>
@@ -160,6 +214,7 @@ function LineRow({ line, currency, total, nested, aligned = false, grouping }: {
           {trimAmount(line.amount)} {line.symbol}
         </Typography>
       </TableCell>
+      <PnlCell line={line} onEdit={onEdit} />
       <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
         <ShareBar share={share} />
       </TableCell>
@@ -169,8 +224,9 @@ function LineRow({ line, currency, total, nested, aligned = false, grouping }: {
 
 // Every value here is real text in a table, so the breakdown is also the table view of the data.
 // Symbols and refs come from stored provider data and are rendered as text, never as HTML.
-export default function Breakdown({ lines, currency, grouping }: { lines: BreakdownLine[]; currency: Currency; grouping: Grouping }) {
+export default function Breakdown({ lines, currency, grouping, onCostChange }: { lines: BreakdownLine[]; currency: Currency; grouping: Grouping; onCostChange: () => void }) {
   const { money } = useMoney()
+  const [editing, setEditing] = useState<BreakdownLine | null>(null)
   // Which groups are open, per grouping. By category and by type open everything (there are few groups), by asset starts closed.
   const [toggled, setToggled] = useState<Record<string, boolean>>({})
 
@@ -190,7 +246,9 @@ export default function Breakdown({ lines, currency, grouping }: { lines: Breakd
   const setAll = (open: boolean) => setToggled((t) => ({ ...t, ...Object.fromEntries(expandable.map((g) => [`${grouping}:${g.key}`, open])) }))
 
   return (
-    <TableContainer>
+    <>
+      <CostDialog line={editing} onClose={() => setEditing(null)} onSaved={onCostChange} />
+      <TableContainer>
       <Table
         sx={{
           '& tbody tr:last-child td': { borderBottom: 0 },
@@ -224,13 +282,18 @@ export default function Breakdown({ lines, currency, grouping }: { lines: Breakd
               Amount
             </TableCell>
             <TableCell align="right">Value</TableCell>
+            <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+              <Tooltip title="Value minus what you paid, in USD. Use the pencil on a row to enter the cost.">
+                <span>P/L</span>
+              </Tooltip>
+            </TableCell>
             <TableCell sx={{ width: '28%', display: { xs: 'none', md: 'table-cell' } }}>Share</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {groups.map((g) => {
             // By asset, an asset held in one place needs no group row. By type the group row is always shown.
-            if (grouping === 'asset' && g.lines.length === 1) return <LineRow key={g.key} line={g.lines[0]} currency={currency} total={total} nested={false} aligned={hasGroupRows} grouping={grouping} />
+            if (grouping === 'asset' && g.lines.length === 1) return <LineRow key={g.key} line={g.lines[0]} currency={currency} total={total} nested={false} aligned={hasGroupRows} grouping={grouping} onEdit={setEditing} />
 
             const open = isOpen(g)
             const share = total > 0 ? (g.value / total) * 100 : 0
@@ -272,16 +335,18 @@ export default function Breakdown({ lines, currency, grouping }: { lines: Breakd
                   <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                     {money(String(g.value), currency)}
                   </TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }} />
                   <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                     <ShareBar share={share} />
                   </TableCell>
                 </TableRow>
-                {open && g.lines.map((l) => <LineRow key={`${l.sourceType}:${l.sourceRef}`} line={l} currency={currency} total={total} nested grouping={grouping} />)}
+                {open && g.lines.map((l) => <LineRow key={`${l.sourceType}:${l.sourceRef}`} line={l} currency={currency} total={total} nested grouping={grouping} onEdit={setEditing} />)}
               </Fragment>
             )
           })}
         </TableBody>
       </Table>
-    </TableContainer>
+      </TableContainer>
+    </>
   )
 }

@@ -1,6 +1,6 @@
 import { Box, Paper, Typography } from '@mui/material'
 import Grid from '@mui/material/Grid'
-import { categoryColor, categoryLabel, categoryOf, type BreakdownLine, type Currency } from '../lib/dashboard'
+import { categoryColor, type BreakdownLine, type Currency } from '../lib/dashboard'
 import { srOnly, useCountUp, usePrefersReducedMotion } from '../lib/motion'
 import { useMoney } from '../lib/privacy'
 
@@ -17,8 +17,8 @@ interface CategoryTotal {
 function totals(lines: BreakdownLine[], currency: Currency): CategoryTotal[] {
   const byKey = new Map<string, CategoryTotal>()
   for (const l of lines) {
-    const key = categoryOf(l.sourceType)
-    const entry = byKey.get(key) ?? { key, label: categoryLabel(key), value: 0, count: 0 }
+    const key = l.category
+    const entry = byKey.get(key) ?? { key, label: l.categoryLabel, value: 0, count: 0 }
     entry.value += Number(currency === 'USD' ? l.valueUsd : l.valueEur)
     entry.count += 1
     byKey.set(key, entry)

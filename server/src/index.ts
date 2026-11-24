@@ -11,6 +11,7 @@ import { authRoutes } from './routes/auth'
 import { dashboardRoutes } from './routes/dashboard'
 import { adminAaveRoutes, type AdminAaveOptions } from './routes/admin-aave'
 import { adminBankRoutes } from './routes/admin-bank'
+import { adminCostBasisRoutes } from './routes/admin-cost-basis'
 import { adminCrowdlendingRoutes } from './routes/admin-crowdlending'
 import { adminCryptoRoutes, type AdminCryptoOptions } from './routes/admin-crypto'
 import { adminExchangeRoutes, type AdminExchangeOptions } from './routes/admin-exchange'
@@ -58,6 +59,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(authRoutes, { prefix: '/api/auth' })
   await app.register(adminAaveRoutes, { prefix: '/api/admin/aave', ...options.adminAave })
   await app.register(adminBankRoutes, { prefix: '/api/admin/bank' })
+  await app.register(adminCostBasisRoutes, { prefix: '/api/admin/cost-basis' })
   await app.register(adminCrowdlendingRoutes, { prefix: '/api/admin/crowdlending' })
   await app.register(adminCryptoRoutes, { prefix: '/api/admin/crypto', ...options.adminCrypto })
   await app.register(adminExchangeRoutes, { prefix: '/api/admin/exchanges', ...options.adminExchange })

@@ -121,6 +121,8 @@ export default function Dashboard() {
   // Date whose breakdown is shown. null means the latest snapshot.
   const [date, setDate] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  // Bumped after a cost is saved, to read the dashboard again.
+  const [reload, setReload] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -140,7 +142,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true
     }
-  }, [date])
+  }, [date, reload])
 
   const latest = data?.latest ?? null
   // The headline total counts up on load and glides when the currency changes.
@@ -243,7 +245,7 @@ export default function Dashboard() {
                 <GroupingToggle value={grouping} onChange={setGrouping} />
               </Stack>
             </Stack>
-            {data.breakdown && <Breakdown lines={data.breakdown.lines} currency={currency} grouping={grouping} />}
+            {data.breakdown && <Breakdown lines={data.breakdown.lines} currency={currency} grouping={grouping} onCostChange={() => setReload((n) => n + 1)} />}
           </Paper>
         </Stack>
       )}

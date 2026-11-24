@@ -2,6 +2,8 @@ import { FastifyPluginAsync } from 'fastify'
 import { query } from '../db/index'
 import { requireAuth } from '../lib/auth'
 import { dec, fixed, VALUE_DP } from '../lib/money'
+import { COST_KEY, costBasisMap, pnlOf } from '../sources/cost-basis'
+import { lineMeta, withCost } from '../sources/meta'
 
 interface SnapshotRow {
   date: string
@@ -82,7 +84,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
       const selected = date ? byDate.get(date) : latest
       if (!selected) return reply.status(404).send({ error: 'No snapshot on that date' })
 
-      const lines = (
+      const rows = (
         await query<LineRow>(
           `SELECT l."sourceType", l."sourceRef", l."symbol", l."amount"::text AS "amount", l."priceUsd"::text AS "priceUsd",
                   l."valueUsd"::text AS "valueUsd", l."valueEur"::text AS "valueEur", l."stale", l."staleSince"::text AS "staleSince"
@@ -92,6 +94,14 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
           [selected.date]
         )
       ).rows
+      // The client does not guess names, categories or statuses from the source type: they come from here.
+      // The cost is the owner's entry, today's, whatever snapshot is shown: the gain is of the value on that date against it.
+      const costs = await costBasisMap()
+      const lines = rows.map((l) => {
+        const meta = lineMeta(l.sourceType, l.sourceRef, l.valueUsd)
+        const pnl = pnlOf(l.valueUsd, costs.get(COST_KEY(l.sourceType, l.sourceRef)))
+        return { ...l, ...meta, ...pnl, status: withCost(meta.status, pnl.pnlUsd) }
+      })
 
       return {
         latest,
