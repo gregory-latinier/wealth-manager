@@ -14,7 +14,9 @@ import { createScanProvider } from '../sources/crypto/providers/known-tokens'
 import { createCoinGecko } from '../sources/crypto/providers/coingecko'
 import { createPriceProvider } from '../sources/crypto/providers/defillama'
 import { createEvmRpc } from '../sources/crypto/providers/evm-rpc'
-import { ProviderError, type EvmProvider, type PriceProvider } from '../sources/crypto/providers/types'
+import { createSolanaRpc } from '../sources/crypto/providers/solana'
+import { createSolanaTokenPrices } from '../sources/crypto/providers/solana-prices'
+import { ProviderError, type EvmProvider, type PriceProvider, type SolTokenPriceProvider, type SolTokenProvider } from '../sources/crypto/providers/types'
 import { addToken, deleteToken, listTokens, setTokenActive } from '../sources/crypto/tokens'
 import { scanAddress } from '../sources/crypto/scan'
 import {
@@ -25,7 +27,7 @@ import {
   setThresholdUsd,
   unignoreToken,
 } from '../sources/crypto/settings'
-import { CHAINS, EVM_CHAINS, isChain, isEvmChain, normalizeAddress, normalizeContract } from '../sources/crypto/validate'
+import { CHAINS, EVM_CHAINS, hasTokens, isChain, normalizeAddress, normalizeToken } from '../sources/crypto/validate'
 
 export interface AdminCryptoOptions {
   /** Overridable for tests. Defaults to Blockscout on Ethereum and a known-token check over RPC on the other chains. */
@@ -34,6 +36,10 @@ export interface AdminCryptoOptions {
   evm?: EvmProvider
   /** Overridable for tests. Defaults to CoinGecko. Tells whether a token has a price. */
   prices?: PriceProvider
+  /** Overridable for tests. Defaults to the public Solana RPC. Reads the SPL tokens of a wallet and the decimals of a mint. */
+  solana?: SolTokenProvider
+  /** Overridable for tests. Defaults to DefiLlama. Prices SPL tokens by mint. */
+  splPrices?: SolTokenPriceProvider
 }
 
 const idParams = {
@@ -52,7 +58,9 @@ function cleanLabel(label: string | null | undefined): string | null | undefined
 export const adminCryptoRoutes: FastifyPluginAsync<AdminCryptoOptions> = async (fastify, options) => {
   const evm = options.evm ?? createEvmRpc()
   const prices = options.prices ?? createPriceProvider(createCoinGecko())
-  const scanProvider = options.scan ?? createScanProvider({ evm, prices, ethereum: createBlockscout() })
+  const solana = options.solana ?? createSolanaRpc()
+  const splPrices = options.splPrices ?? createSolanaTokenPrices()
+  const scanProvider = options.scan ?? createScanProvider({ evm, prices, ethereum: createBlockscout(), solana: { tokens: solana, prices: splPrices } })
 
   // Every admin route needs a session.
   fastify.addHook('preHandler', requireAuth)
@@ -152,7 +160,7 @@ export const adminCryptoRoutes: FastifyPluginAsync<AdminCryptoOptions> = async (
     return { tokens: await listTokens(id) }
   })
 
-  // Adds one ERC-20 to track, from a scan selection or by typing a contract. Symbol and decimals come from
+  // Adds one ERC-20 or SPL token to track, from a scan selection or by typing a contract. Symbol and decimals come from
   // the chain, never from the client, so a hostile or mistyped value cannot be stored.
   fastify.post(
     '/addresses/:id/tokens',
@@ -173,19 +181,37 @@ export const adminCryptoRoutes: FastifyPluginAsync<AdminCryptoOptions> = async (
       const body = request.body as { contractAddress: string }
       const address = await getAddress(id)
       if (!address) return reply.status(404).send({ error: 'Address not found' })
-      if (!isEvmChain(address.chain)) return reply.status(400).send({ error: 'Tokens can only be tracked on Ethereum, Base, BNB Chain and Arbitrum addresses' })
+      if (!hasTokens(address.chain)) return reply.status(400).send({ error: 'Tokens can only be tracked on Ethereum, Base, BNB Chain, Arbitrum and Solana addresses' })
 
-      const contract = normalizeContract(body.contractAddress)
-      if (!contract) return reply.status(400).send({ error: 'Not a valid contract address' })
+      // An ERC-20 contract is lowercased. A Solana mint keeps its case: it is base58 and two mints can differ by case alone.
+      const contract = normalizeToken(address.chain, body.contractAddress)
+      if (!contract) return reply.status(400).send({ error: address.chain === 'sol' ? 'Not a valid Solana mint address' : 'Not a valid contract address' })
 
       try {
-        const meta = await evm.getTokenMetadata(address.chain, contract)
-        // The price check only drives the "unpriced" warning. If it fails the token is still added, with priced unknown.
+        let meta: { symbol: string; decimals: number }
         let priced: boolean | null = null
-        try {
-          priced = (await prices.getTokenPrices(address.chain, [contract])).has(contract)
-        } catch (err) {
-          request.log.warn({ err: (err as Error).message }, 'price check failed while adding a token')
+        if (address.chain === 'sol') {
+          // The decimals come from the mint itself, which also rejects a wallet address pasted by mistake. The symbol comes from the
+          // price provider: a mint has no symbol on chain. Without a price it is stored under its short mint.
+          const decimals = await solana.getMintDecimals(contract)
+          let symbol = `${contract.slice(0, 4)}…${contract.slice(-4)}`
+          try {
+            const price = (await splPrices.getSplPrices([contract])).get(contract)
+            priced = price !== undefined
+            if (price?.symbol) symbol = price.symbol
+          } catch (err) {
+            request.log.warn({ err: (err as Error).message }, 'price check failed while adding a token')
+          }
+          meta = { symbol, decimals }
+        } else {
+          const evmChain = address.chain
+          meta = await evm.getTokenMetadata(evmChain, contract)
+          // The price check only drives the "unpriced" warning. If it fails the token is still added, with priced unknown.
+          try {
+            priced = (await prices.getTokenPrices(evmChain, [contract])).has(contract)
+          } catch (err) {
+            request.log.warn({ err: (err as Error).message }, 'price check failed while adding a token')
+          }
         }
 
         const token = await addToken(id, { contractAddress: contract, symbol: meta.symbol, decimals: meta.decimals })
@@ -193,7 +219,12 @@ export const adminCryptoRoutes: FastifyPluginAsync<AdminCryptoOptions> = async (
         return reply.status(201).send({
           ...token,
           priced,
-          warning: priced === false ? 'No price is known for this token. It will be valued at 0 until a price exists.' : null,
+          warning:
+            priced === false
+              ? address.chain === 'sol'
+                ? 'No price is known for this token. Its snapshot line will be reported as failed, and its last known value carried forward, until a price exists.'
+                : 'No price is known for this token. It will be valued at 0 until a price exists.'
+              : null,
         })
       } catch (err) {
         if (err instanceof ProviderError) {
@@ -261,7 +292,7 @@ export const adminCryptoRoutes: FastifyPluginAsync<AdminCryptoOptions> = async (
           required: ['chain', 'contractAddress'],
           additionalProperties: false,
           properties: {
-            chain: { type: 'string', enum: [...EVM_CHAINS] },
+            chain: { type: 'string', enum: [...EVM_CHAINS, 'sol'] },
             contractAddress: { type: 'string', minLength: 1, maxLength: 100 },
           },
         },
@@ -269,8 +300,9 @@ export const adminCryptoRoutes: FastifyPluginAsync<AdminCryptoOptions> = async (
     },
     async (request, reply) => {
       const body = request.body as { chain: string; contractAddress: string }
-      if (!isChain(body.chain) || !isEvmChain(body.chain)) return reply.status(400).send({ error: 'Unknown chain' })
-      const contract = normalizeContract(body.contractAddress)
+      if (!isChain(body.chain) || !hasTokens(body.chain)) return reply.status(400).send({ error: 'Unknown chain' })
+      // Same rule as when a token is added: an ERC-20 contract is lowercased, a Solana mint keeps its case.
+      const contract = normalizeToken(body.chain, body.contractAddress)
       if (!contract) return reply.status(400).send({ error: 'Not a valid contract address' })
       return reply.status(201).send(await ignoreToken(body.chain, contract))
     }

@@ -3,8 +3,8 @@ import { useState, type FormEvent } from 'react'
 import { ApiError } from '../lib/api'
 import { tokenApi, type AddedToken } from '../lib/crypto'
 
-/** Adds an ERC-20 by contract. The server reads symbol and decimals from the chain. */
-export default function AddTokenForm({ addressId, onAdded }: { addressId: string; onAdded: (token: AddedToken) => void }) {
+/** Adds an ERC-20 by contract, or a Solana token by mint. The server reads the decimals from the chain. */
+export default function AddTokenForm({ addressId, label = 'Token contract address', onAdded }: { addressId: string; label?: string; onAdded: (token: AddedToken) => void }) {
   const [contract, setContract] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
@@ -35,7 +35,7 @@ export default function AddTokenForm({ addressId, onAdded }: { addressId: string
         <TextField
           size="small"
           fullWidth
-          label="Token contract address"
+          label={label}
           value={contract}
           onChange={(e) => setContract(e.target.value)}
           slotProps={{ htmlInput: { maxLength: 100, spellCheck: false } }}
