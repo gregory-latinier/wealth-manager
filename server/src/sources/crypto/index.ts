@@ -6,7 +6,8 @@ import { createCoinGecko } from './providers/coingecko'
 import { createPriceProvider } from './providers/defillama'
 import { createEvmRpc } from './providers/evm-rpc'
 import { createSolanaRpc } from './providers/solana'
-import type { BtcProvider, EvmChain, EvmProvider, NativePrices, PriceProvider, SolProvider } from './providers/types'
+import { createSolanaTokenPrices } from './providers/solana-prices'
+import type { BtcProvider, EvmChain, EvmProvider, NativePrices, PriceProvider, SolProvider, SolTokenPriceProvider, SolTokenProvider } from './providers/types'
 import { EVM_CHAINS, isEvmChain, type Chain } from './validate'
 
 export const CRYPTO_SOURCE_ID = 'crypto'
@@ -16,7 +17,9 @@ export interface CryptoProviders {
   evm: EvmProvider
   prices: PriceProvider
   /** Optional so a caller that never tracks Solana does not have to provide one. A Solana address then fails, it is not valued at 0. */
-  sol?: SolProvider
+  sol?: SolProvider & Partial<SolTokenProvider>
+  /** Prices of SPL tokens by mint. Without it a tracked Solana token fails, it is not valued at 0. */
+  splPrices?: SolTokenPriceProvider
 }
 
 /** Which native coin pays for gas on an EVM chain, and so which price values the balance. Base and Arbitrum use ETH. */
@@ -112,6 +115,44 @@ export function createCryptoSource(providers: CryptoProviders): SourceType {
         }
       }
 
+      /** SOL balance plus every tracked SPL token of one wallet. A token fails alone: a missing price or read never hides the SOL. */
+      const collectSolana = async (holder: Holder) => {
+        if (!providers.sol) throw new Error('Solana is not configured')
+        // The balance is read before the price is checked, so a missing SOL price is reported as such and not as an RPC failure.
+        const amount = await providers.sol.getBalance(holder.address)
+        if (holder.native) {
+          lines.push({ sourceRef: nativeRef('sol', holder.address), symbol: holder.native.symbol, amount, priceUsd: nativePrice(native, 'sol') })
+        }
+        if (holder.tokens.length === 0) return
+
+        const failTokens = (reason: string) => {
+          for (const t of holder.tokens) failures.push({ sourceRef: tokenRef('sol', holder.address, t.contractAddress!), reason })
+        }
+        if (!providers.sol.getTokenBalances || !providers.splPrices) return failTokens('Solana tokens are not configured')
+
+        let held: Map<string, Decimal>
+        try {
+          held = new Map((await providers.sol.getTokenBalances(holder.address)).map((b) => [b.mint, b.balance]))
+        } catch (err) {
+          return failTokens(reasonOf(err))
+        }
+        let prices: Awaited<ReturnType<SolTokenPriceProvider['getSplPrices']>>
+        try {
+          prices = await providers.splPrices.getSplPrices(holder.tokens.map((t) => t.contractAddress!))
+        } catch (err) {
+          return failTokens(`price lookup failed: ${reasonOf(err)}`)
+        }
+        for (const token of holder.tokens) {
+          const ref = tokenRef('sol', holder.address, token.contractAddress!)
+          const price = prices.get(token.contractAddress!)
+          // A wallet that no longer has a token account for the mint holds none of it: that is a real zero, not a failed read.
+          const balance = held.get(token.contractAddress!) ?? dec(0)
+          // A price DefiLlama does not have is a failure so the last value is carried forward. Valuing it at 0 would drop it from the net worth.
+          if (!price) failures.push({ sourceRef: ref, reason: `no USD price for ${token.symbol}` })
+          else lines.push({ sourceRef: ref, symbol: token.symbol, amount: balance, priceUsd: price.priceUsd })
+        }
+      }
+
       await Promise.all(
         holders.map(async (holder) => {
           try {
@@ -123,12 +164,7 @@ export function createCryptoSource(providers: CryptoProviders): SourceType {
               return
             }
             if (holder.chain === 'sol') {
-              if (!providers.sol) throw new Error('Solana is not configured')
-              // The balance is read before the price is checked, so a missing SOL price is reported as such and not as an RPC failure.
-              const amount = await providers.sol.getBalance(holder.address)
-              if (holder.native) {
-                lines.push({ sourceRef: nativeRef('sol', holder.address), symbol: holder.native.symbol, amount, priceUsd: nativePrice(native, 'sol') })
-              }
+              await collectSolana(holder)
               return
             }
 
@@ -174,5 +210,5 @@ export function createCryptoSource(providers: CryptoProviders): SourceType {
 
 /** The crypto source wired to the real providers. */
 export function createDefaultCryptoSource(): SourceType {
-  return createCryptoSource({ btc: createBtcProvider(), evm: createEvmRpc(), sol: createSolanaRpc(), prices: createPriceProvider(createCoinGecko()) })
+  return createCryptoSource({ btc: createBtcProvider(), evm: createEvmRpc(), sol: createSolanaRpc(), splPrices: createSolanaTokenPrices(), prices: createPriceProvider(createCoinGecko()) })
 }

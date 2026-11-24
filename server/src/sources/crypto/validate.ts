@@ -65,3 +65,17 @@ export function normalizeAddress(chain: Chain, input: string): string | null {
 export function normalizeContract(input: string): string | null {
   return normalizeAddress('eth', input)
 }
+
+/** Chains whose tokens can be tracked: the EVM ones (ERC-20 contracts) and Solana (SPL mints). Bitcoin has none. */
+export function hasTokens(chain: Chain): chain is EvmChain | 'sol' {
+  return chain === 'sol' || isEvmChain(chain)
+}
+
+/**
+ * The stored form of a token's contract on a chain. An ERC-20 contract is lowercased. A Solana mint is base58 and
+ * case-sensitive (two mints can differ by case alone), so it is kept exactly as written.
+ */
+export function normalizeToken(chain: Chain, input: string): string | null {
+  if (chain === 'sol') return normalizeAddress('sol', input)
+  return isEvmChain(chain) ? normalizeContract(input) : null
+}

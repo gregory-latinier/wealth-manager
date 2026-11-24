@@ -1,6 +1,7 @@
 import { dec } from '../../../lib/money'
-import type { ScanProvider, ScanToken } from './blockscout'
-import type { EvmChain, EvmProvider, PriceProvider } from './types'
+import type { ScanProvider, ScanSupport, ScanToken } from './blockscout'
+import { createSolanaScan } from './solana-scan'
+import type { EvmChain, EvmProvider, PriceProvider, SolTokenPriceProvider, SolTokenProvider, TokenChain } from './types'
 
 interface KnownToken {
   /** Mixed case is fine here, it is lowercased on use. */
@@ -54,6 +55,8 @@ export const KNOWN_TOKENS: Partial<Record<EvmChain, KnownToken[]>> = {
   ],
 }
 
+const evmOnly = (chain: TokenChain): chain is EvmChain => chain !== 'sol'
+
 /**
  * Scan source for chains without a keyless indexer: balances of a fixed token list over RPC, prices from CoinGecko.
  * A price failure leaves the tokens unpriced instead of failing the scan, so the owner still sees what is held.
@@ -64,13 +67,14 @@ export function createKnownTokenScan(providers: { evm: EvmProvider; prices: Pric
   const key = (chain: EvmChain, address: string) => `${chain}:${address.toLowerCase()}`
 
   return {
-    pricesUnavailable: (chain, address) => priceFailed.has(key(chain, address)),
+    pricesUnavailable: (chain, address) => evmOnly(chain) && priceFailed.has(key(chain, address)),
 
     support(chain) {
-      return KNOWN_TOKENS[chain] ? { enabled: true } : { enabled: false, reason: 'No known-token list for this chain.' }
+      return evmOnly(chain) && KNOWN_TOKENS[chain] ? { enabled: true } : { enabled: false, reason: 'No known-token list for this chain.' }
     },
 
     async listTokens(chain, address) {
+      if (!evmOnly(chain)) throw new Error(`the known-token scan does not handle ${chain}`)
       const known = KNOWN_TOKENS[chain] ?? []
       priceFailed.delete(key(chain, address))
       const refs = known.map((t) => ({ contract: t.contract.toLowerCase(), decimals: t.decimals }))
@@ -108,13 +112,27 @@ export function createKnownTokenScan(providers: { evm: EvmProvider; prices: Pric
   }
 }
 
-/** Ethereum keeps the keyless Blockscout scan, which discovers every token. The other chains use the known-token list. */
-export function createScanProvider(options: { evm: EvmProvider; prices: PriceProvider; ethereum: ScanProvider }): ScanProvider {
+/**
+ * Ethereum keeps the keyless Blockscout scan, which discovers every token. The other EVM chains use the known-token list.
+ * Solana reads the wallet's SPL token accounts, so it needs its own providers. Without them a Solana scan says it is disabled.
+ */
+export function createScanProvider(options: {
+  evm: EvmProvider
+  prices: PriceProvider
+  ethereum: ScanProvider
+  solana?: { tokens: SolTokenProvider; prices: SolTokenPriceProvider }
+}): ScanProvider {
   const known = createKnownTokenScan(options)
-  const pick = (chain: EvmChain) => (chain === 'eth' ? options.ethereum : known)
+  const sol = options.solana ? createSolanaScan(options.solana) : null
+  const unavailable: ScanSupport = { enabled: false, reason: 'Solana token scanning is not configured.' }
+  const pick = (chain: TokenChain): ScanProvider | null => (chain === 'sol' ? sol : chain === 'eth' ? options.ethereum : known)
   return {
-    support: (chain) => pick(chain).support(chain),
-    listTokens: (chain, address) => pick(chain).listTokens(chain, address),
-    pricesUnavailable: (chain, address) => pick(chain).pricesUnavailable?.(chain, address) ?? false,
+    support: (chain) => pick(chain)?.support(chain) ?? unavailable,
+    listTokens: async (chain, address) => {
+      const provider = pick(chain)
+      if (!provider) throw new Error('Solana token scanning is not configured')
+      return provider.listTokens(chain, address)
+    },
+    pricesUnavailable: (chain, address) => pick(chain)?.pricesUnavailable?.(chain, address) ?? false,
   }
 }

@@ -1,6 +1,6 @@
 import { dec, type Decimal } from '../../../lib/money'
 import { createLimiter, fetchJson, type FetchLike } from './http'
-import { ProviderError, type EvmChain } from './types'
+import { ProviderError, type EvmChain, type TokenChain } from './types'
 
 const PROVIDER = 'blockscout'
 // Big wallets take about 25 s to answer (see docs/providers.md), so this is deliberately generous.
@@ -9,9 +9,9 @@ const MAX_SYMBOL_LENGTH = 32
 const MAX_NAME_LENGTH = 64
 const CONTRACT = /^0x[0-9a-fA-F]{40}$/
 
-/** One ERC-20 balance found by a scan. Provider-sourced strings are sanitised and length-capped here. */
+/** One token balance found by a scan (an ERC-20 or a Solana SPL token). Provider-sourced strings are sanitised and length-capped here. */
 export interface ScanToken {
-  /** Lowercase contract address. */
+  /** Lowercase contract address, or the mint exactly as written for a Solana token. */
   contract: string
   symbol: string
   name: string
@@ -26,10 +26,10 @@ export interface ScanToken {
 export type ScanSupport = { enabled: true } | { enabled: false; reason: string }
 
 export interface ScanProvider {
-  support(chain: EvmChain): ScanSupport
-  listTokens(chain: EvmChain, address: string): Promise<ScanToken[]>
+  support(chain: TokenChain): ScanSupport
+  listTokens(chain: TokenChain, address: string): Promise<ScanToken[]>
   /** Set by listTokens when prices could not be fetched, so "unpriced" means "lookup failed", not "worthless". Optional. */
-  pricesUnavailable?: (chain: EvmChain, address: string) => boolean
+  pricesUnavailable?: (chain: TokenChain, address: string) => boolean
 }
 
 function cleanText(value: unknown, max: number): string {

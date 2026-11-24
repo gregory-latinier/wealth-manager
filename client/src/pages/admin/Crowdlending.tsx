@@ -357,7 +357,8 @@ export default function Crowdlending() {
             {totals && ` Still to be refunded: ${totals}.`}
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAdding(true)}>
+        {/* The long description next to it would otherwise squeeze the button until its label wraps. */}
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAdding(true)} sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
           Add loan
         </Button>
       </Stack>

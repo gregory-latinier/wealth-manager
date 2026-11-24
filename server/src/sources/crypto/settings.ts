@@ -1,7 +1,7 @@
 import { query } from '../../db/index'
 import { Decimal, dec } from '../../lib/money'
 import { generateId } from '../../lib/auth'
-import type { EvmChain } from './providers/types'
+import type { TokenChain } from './providers/types'
 
 export const DEFAULT_THRESHOLD_USD = '10'
 const THRESHOLD_KEY = 'crypto.scanThresholdUsd'
@@ -30,7 +30,7 @@ export async function setThresholdUsd(value: string): Promise<void> {
 
 export interface IgnoredToken {
   id: string
-  chain: EvmChain
+  chain: TokenChain
   contractAddress: string
   createdAt: string
 }
@@ -43,7 +43,7 @@ export async function listIgnored(): Promise<IgnoredToken[]> {
 }
 
 /** Idempotent: ignoring a token twice returns the existing row. */
-export async function ignoreToken(chain: EvmChain, contractAddress: string): Promise<IgnoredToken> {
+export async function ignoreToken(chain: TokenChain, contractAddress: string): Promise<IgnoredToken> {
   const res = await query<IgnoredToken>(
     `INSERT INTO "IgnoredToken" ("id", "chain", "contractAddress") VALUES ($1, $2, $3)
      ON CONFLICT ("chain", "contractAddress") DO UPDATE SET "chain" = EXCLUDED."chain"

@@ -67,6 +67,12 @@ describe('GET /api/dashboard', () => {
     expect(body.breakdown.lines.map((l: { symbol: string }) => l.symbol)).toEqual(['BTC', 'ETH']) // by value, largest first
   })
 
+  it('names, categorises and gives a status to every line, so the client does not guess', async () => {
+    await snap('2026-11-19', source('60000'))
+    const [btc] = (await get()).json().breakdown.lines
+    expect(btc).toMatchObject({ sourceType: 'crypto', sourceLabel: 'Crypto', category: 'crypto', categoryLabel: 'Crypto', status: 'available' })
+  })
+
   it('computes 1-day and 7-day changes in decimal math from stored values (SC10)', async () => {
     await snap('2026-11-12', source('50000')) // 25000 + 4000 = 29000 USD
     await snap('2026-11-18', source('56000')) // 28000 + 4000 = 32000 USD

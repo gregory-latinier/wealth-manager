@@ -21,7 +21,7 @@ import { ApiError } from '../lib/api'
 import { shortAddress, tokenApi, type CryptoAddress, type TrackedToken } from '../lib/crypto'
 import AddTokenForm from './AddTokenForm'
 
-/** Tokens tracked on one EVM address: pause, delete, add by contract, or open the scan. */
+/** Tokens tracked on one EVM or Solana address: pause, delete, add by contract, or open the scan. */
 export default function TrackedTokensDialog({
   address,
   onClose,
@@ -101,7 +101,7 @@ export default function TrackedTokensDialog({
         )}
         {address && (
           <Stack spacing={2} sx={{ mt: 2 }}>
-            <AddTokenForm addressId={address.id} onAdded={() => void load(address)} />
+            <AddTokenForm addressId={address.id} label={address.chain === 'sol' ? 'Token mint address' : 'Token contract address'} onAdded={() => void load(address)} />
             <Box>
               <Button variant="outlined" onClick={() => onScan(address)}>
                 Scan for tokens

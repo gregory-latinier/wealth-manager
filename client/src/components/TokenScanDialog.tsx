@@ -21,7 +21,7 @@ import {
 } from '@mui/material'
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '../lib/api'
-import { CHAIN_LABEL, formatMoney, shortAddress, tokenApi, type CryptoAddress, type EvmChain, type HiddenEntry, type ScanEntry, type ScanResult } from '../lib/crypto'
+import { CHAIN_LABEL, formatMoney, shortAddress, tokenApi, type CryptoAddress, type TokenChain, type HiddenEntry, type ScanEntry, type ScanResult } from '../lib/crypto'
 
 const errorText = (err: unknown) => (err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
 
@@ -113,7 +113,7 @@ export default function TokenScanDialog({
   }
 
   const applyThreshold = () => act(async () => void (await tokenApi.setThreshold(threshold.trim())))
-  const ignore = (e: ScanEntry) => act(() => tokenApi.ignore(address!.chain as EvmChain, e.contract))
+  const ignore = (e: ScanEntry) => act(() => tokenApi.ignore(address!.chain as TokenChain, e.contract))
   const unignore = (e: HiddenEntry) =>
     act(async () => {
       const row = (await tokenApi.listIgnored()).find((i) => i.chain === address!.chain && i.contractAddress === e.contract)

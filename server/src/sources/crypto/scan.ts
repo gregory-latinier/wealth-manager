@@ -3,7 +3,7 @@ import { Decimal, VALUE_DP, AMOUNT_DP, fixed } from '../../lib/money'
 import type { CryptoAddress } from './addresses'
 import type { ScanProvider, ScanToken } from './providers/blockscout'
 import { getThresholdUsd, listIgnored } from './settings'
-import { isEvmChain } from './validate'
+import { hasTokens } from './validate'
 
 export interface ScanEntry {
   contract: string
@@ -56,11 +56,11 @@ function toEntry(token: ScanToken, tracked: boolean): ScanEntry {
 const byValueDesc = (a: ScanEntry, b: ScanEntry) =>
   new Decimal(b.valueUsd ?? 0).comparedTo(new Decimal(a.valueUsd ?? 0)) || a.symbol.localeCompare(b.symbol)
 
-/** Scans one address. BTC has no tokens, so it gets an empty result rather than an error. */
+/** Scans one address. Bitcoin has no tokens, so it gets an empty result rather than an error. */
 export async function scanAddress(address: CryptoAddress, provider: ScanProvider): Promise<ScanResult> {
   const thresholdUsd = await getThresholdUsd()
   const empty: ScanResult = { status: 'ok', thresholdUsd, selectable: [], unpriced: [], hidden: [], belowThresholdCount: 0, pricesUnavailable: false }
-  if (!isEvmChain(address.chain)) return empty
+  if (!hasTokens(address.chain)) return empty
 
   const support = provider.support(address.chain)
   if (!support.enabled) return { status: 'disabled', reason: support.reason }

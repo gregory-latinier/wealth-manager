@@ -2,14 +2,17 @@ import { api } from './api'
 
 export type Chain = 'btc' | 'eth' | 'base' | 'bsc' | 'arb' | 'sol'
 export type EvmChain = Exclude<Chain, 'btc' | 'sol'>
+/** A chain whose tokens can be tracked: the EVM chains (ERC-20) and Solana (SPL). */
+export type TokenChain = EvmChain | 'sol'
 
 export const CHAIN_LABEL: Record<Chain, string> = { btc: 'Bitcoin', eth: 'Ethereum', base: 'Base', bsc: 'BNB Chain', arb: 'Arbitrum', sol: 'Solana' }
 
 /** Chains in alphabetical order of their label, for menus. */
 export const CHAINS_BY_LABEL = (Object.keys(CHAIN_LABEL) as Chain[]).sort((a, b) => CHAIN_LABEL[a].localeCompare(CHAIN_LABEL[b], 'en', { sensitivity: 'base' }))
 
-/** Only EVM addresses hold tokens that can be picked. Bitcoin and Solana track their native coin only. */
 export const isEvmChain = (chain: Chain): chain is EvmChain => chain !== 'btc' && chain !== 'sol'
+/** Only these addresses hold tokens that can be picked. Bitcoin tracks its native coin only. */
+export const hasTokens = (chain: Chain): chain is TokenChain => chain !== 'btc'
 
 export interface AddressLastValue {
   usd: string
@@ -86,7 +89,7 @@ export interface AddedToken extends TrackedToken {
 
 export interface IgnoredToken {
   id: string
-  chain: EvmChain
+  chain: TokenChain
   contractAddress: string
 }
 
@@ -102,6 +105,6 @@ export const tokenApi = {
   getThreshold: () => api<{ scanThresholdUsd: string }>(`${BASE}/settings`).then((r) => r.scanThresholdUsd),
   setThreshold: (scanThresholdUsd: string) => api<{ scanThresholdUsd: string }>(`${BASE}/settings`, { method: 'PUT', body: { scanThresholdUsd } }),
   listIgnored: () => api<{ ignored: IgnoredToken[] }>(`${BASE}/ignored-tokens`).then((r) => r.ignored),
-  ignore: (chain: EvmChain, contractAddress: string) => api<IgnoredToken>(`${BASE}/ignored-tokens`, { method: 'POST', body: { chain, contractAddress } }),
+  ignore: (chain: TokenChain, contractAddress: string) => api<IgnoredToken>(`${BASE}/ignored-tokens`, { method: 'POST', body: { chain, contractAddress } }),
   unignore: (id: string) => api(`${BASE}/ignored-tokens/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 }

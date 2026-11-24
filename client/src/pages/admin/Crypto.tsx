@@ -34,7 +34,7 @@ import AdminNav from '../../components/AdminNav'
 import TokenScanDialog from '../../components/TokenScanDialog'
 import TrackedTokensDialog from '../../components/TrackedTokensDialog'
 import { ApiError } from '../../lib/api'
-import { CHAIN_LABEL, CHAINS_BY_LABEL, cryptoApi, formatMoney, isEvmChain, shortAddress, type Chain, type CryptoAddress } from '../../lib/crypto'
+import { CHAIN_LABEL, CHAINS_BY_LABEL, cryptoApi, formatMoney, hasTokens, shortAddress, type Chain, type CryptoAddress } from '../../lib/crypto'
 
 const errorText = (err: unknown) => (err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
 
@@ -93,7 +93,7 @@ function AddAddressDialog({ open, onClose, onAdded }: { open: boolean; onClose: 
               chain === 'btc'
                 ? 'A plain address, not an xpub.'
                 : chain === 'sol'
-                  ? 'A base58 wallet address. Only the SOL balance is tracked, not SPL tokens.'
+                  ? 'A base58 wallet address. Tokens (SPL) are picked after the address is added.'
                   : 'Starts with 0x. Tokens are picked after the address is added.'
             }
           />
@@ -334,7 +334,7 @@ export default function Crypto() {
                     />
                   </TableCell>
                   <TableCell align="right">
-                    {isEvmChain(a.chain) && (
+                    {hasTokens(a.chain) && (
                       <IconButton aria-label="Tracked tokens" onClick={() => setManaging(a)}>
                         <TokenIcon />
                       </IconButton>
@@ -356,7 +356,7 @@ export default function Crypto() {
       <AddAddressDialog open={adding} onClose={() => setAdding(false)} onAdded={(a) => {
           void load()
           // A new EVM address goes straight to token selection.
-          if (isEvmChain(a.chain)) setScanning({ ...a, lastValue: null })
+          if (hasTokens(a.chain)) setScanning({ ...a, lastValue: null })
         }}
       />
       <TrackedTokensDialog

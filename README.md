@@ -8,10 +8,11 @@ Built to be self-hosted on cheap shared hosting ([o2switch](https://www.o2switch
 
 ## What it does (v1)
 
-- Tracks **crypto addresses**: BTC, ETH, Base, BNB Chain, Arbitrum and Solana. Native coins plus ERC-20/BEP-20 tokens on the EVM chains. Solana tracks SOL only, not SPL tokens.
+- Tracks **crypto addresses**: BTC, ETH, Base, BNB Chain, Arbitrum and Solana. Native coins plus ERC-20/BEP-20 tokens on the EVM chains, and SPL tokens on Solana (classic token program; Token-2022 accounts are not read).
 - Adding an address scans it for tokens worth more than a USD threshold (default about $10). You pick which to track, or add one by contract address.
 - A daily snapshot records every holding, its price and its value in USD and EUR.
 - The dashboard shows the total, the 1-day and 7-day change, the evolution chart, and the holdings of any day.
+- Each holding gets a status (available, locked, borrowed). Click the pencil in the **P/L** column to enter what you paid for a position, in USD in total: the table then shows the gain or loss, and an available holding worth less than its cost is grouped as **Available at a loss**. A position without a cost shows no figure, never a zero gain. The cost is stored in the `CostBasis` table (migration 022) and is one figure per position, not a purchase history.
 - If a provider fails, the last known value is carried forward and marked **stale**, so one outage never leaves a hole in the chart.
 
 Out of scope for v1: backfilling history, trades, taxes and P&L, other chains, NFTs, BTC xpubs. Another source type (forex) is meant to plug in later as a new `SourceType`.

@@ -1,0 +1,8 @@
+# Keep line endings as LF in the repository whatever the platform, so a Windows checkout does not produce CRLF diffs.
+* text=auto eol=lf
+
+# Binary files are left alone.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
