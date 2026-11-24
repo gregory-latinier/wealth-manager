@@ -67,6 +67,10 @@ const CATEGORY_OF: Record<string, string> = {
 }
 const CATEGORY_LABEL: Record<string, string> = { crypto: 'Crypto', stocks: 'Stocks & ETFs', cash: 'Cash & trading accounts', crowdlending: 'Crowdlending' }
 
+// One color per category, shared by the donut and the cards so a category looks the same everywhere. Same family as the donut's ramp.
+const CATEGORY_COLOR: Record<string, string> = { crypto: '#a78bfa', stocks: '#4cd9a0', cash: '#5eb5ff', crowdlending: '#f0b429' }
+export const categoryColor = (category: string): string | undefined => CATEGORY_COLOR[category]
+
 export const categoryOf = (sourceType: string): string => CATEGORY_OF[sourceType] ?? sourceType
 export const categoryLabel = (category: string): string => CATEGORY_LABEL[category] ?? sourceLabel(category)
 

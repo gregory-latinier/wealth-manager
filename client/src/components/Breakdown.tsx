@@ -4,9 +4,10 @@ import CollapseAllIcon from '@mui/icons-material/UnfoldLessOutlined'
 import ExpandAllIcon from '@mui/icons-material/UnfoldMoreOutlined'
 import WarningIcon from '@mui/icons-material/WarningAmberOutlined'
 import { Fragment, useState } from 'react'
-import { formatMoney, shortAddress } from '../lib/crypto'
+import { shortAddress } from '../lib/crypto'
 import { VIOLET } from '../theme'
 import { groupKey, groupLabel, type BreakdownLine, type Currency, type Grouping } from '../lib/dashboard'
+import { useMoney } from '../lib/privacy'
 
 const EXCHANGE_NAMES: Record<string, string> = { kraken: 'Kraken', okx: 'OKX' }
 
@@ -96,26 +97,56 @@ const staleChip = (staleSince: string | null) => (
   </Tooltip>
 )
 
-/** One holding. Inside a group it is indented under the group row. */
-function LineRow({ line, currency, total, nested }: { line: BreakdownLine; currency: Currency; total: number; nested: boolean }) {
+// Layout of the first column, in px. The table cells pad 8px on a phone and 16px above, and a group row starts with a chevron button
+// followed by its label. Lines are placed from these numbers so they line up with that label instead of an eyeballed value.
+const CELL_PAD = { xs: 8, sm: 16 }
+const CHEVRON = 28
+const CHEVRON_GAP = 4
+const NESTED_INDENT = 16
+const fromCell = (extra: number) => ({ xs: `${CELL_PAD.xs + extra}px`, sm: `${CELL_PAD.sm + extra}px` })
+
+/**
+ * One holding. `nested` lines sit under a group row: they are indented past the group label, with a guide line under the chevron
+ * and a faint background. `aligned` lines are not in a group, but other rows are, so their text is lined up with the group labels.
+ * By asset a nested line is the same coin as its group, so it is named by where it is held instead of repeating the symbol.
+ */
+function LineRow({ line, currency, total, nested, aligned = false, grouping }: { line: BreakdownLine; currency: Currency; total: number; nested: boolean; aligned?: boolean; grouping: Grouping }) {
+  const { money } = useMoney()
   const amountValue = currency === 'USD' ? line.valueUsd : line.valueEur
   const share = total > 0 ? (Number(amountValue) / total) * 100 : 0
+  const byLocation = nested && grouping === 'asset'
   return (
-    <TableRow>
-      <TableCell sx={nested ? { pl: { xs: 4, sm: 7 } } : undefined}>
+    <TableRow sx={nested ? { bgcolor: 'rgba(255, 255, 255, 0.025)' } : undefined}>
+      <TableCell
+        sx={
+          nested
+            ? {
+                position: 'relative',
+                // `&&` doubles the class: the table sets `& td { px }`, which is more specific than a single class and would win.
+                '&&': { pl: fromCell(CHEVRON + CHEVRON_GAP + NESTED_INDENT) },
+                // Vertical guide under the middle of the chevron, so a line visibly belongs to the group above it.
+                '&::before': { content: '""', position: 'absolute', top: 0, bottom: 0, left: fromCell(CHEVRON / 2), width: '1px', bgcolor: 'divider' },
+              }
+            : aligned
+              ? { '&&': { pl: fromCell(CHEVRON + CHEVRON_GAP) } }
+              : undefined
+        }
+      >
         <Typography variant="body2" sx={{ fontWeight: nested ? 500 : 600 }}>
-          {line.symbol}
+          {byLocation ? describeRef(line) : line.symbol}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {describeRef(line)}
-        </Typography>
+        {!byLocation && (
+          <Typography variant="caption" color="text.secondary">
+            {describeRef(line)}
+          </Typography>
+        )}
         {line.stale && staleChip(line.staleSince)}
       </TableCell>
       <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', display: { xs: 'none', sm: 'table-cell' } }}>
         {trimAmount(line.amount)}
       </TableCell>
       <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-        {formatMoney(amountValue, currency)}
+        {money(amountValue, currency)}
         {/* The Amount column is hidden on phones, so the amount moves under the value. */}
         <Typography variant="caption" color="text.secondary" component="div" sx={{ display: { xs: 'block', sm: 'none' } }}>
           {trimAmount(line.amount)} {line.symbol}
@@ -131,6 +162,7 @@ function LineRow({ line, currency, total, nested }: { line: BreakdownLine; curre
 // Every value here is real text in a table, so the breakdown is also the table view of the data.
 // Symbols and refs come from stored provider data and are rendered as text, never as HTML.
 export default function Breakdown({ lines, currency, grouping }: { lines: BreakdownLine[]; currency: Currency; grouping: Grouping }) {
+  const { money } = useMoney()
   // Which groups are open, per grouping. By category and by type open everything (there are few groups), by asset starts closed.
   const [toggled, setToggled] = useState<Record<string, boolean>>({})
 
@@ -143,6 +175,8 @@ export default function Breakdown({ lines, currency, grouping }: { lines: Breakd
   const toggle = (g: Group) => setToggled((t) => ({ ...t, [`${grouping}:${g.key}`]: !isOpen(g) }))
   // Only groups with a row of their own can be open. A single-line asset has nothing to collapse.
   const expandable = groups.filter((g) => grouping !== 'asset' || g.lines.length > 1)
+  // When some rows have a chevron, the ones without must leave the same room, or the first column zigzags.
+  const hasGroupRows = expandable.length > 0
   const anyOpen = expandable.some(isOpen)
   const allOpen = expandable.every(isOpen)
   const setAll = (open: boolean) => setToggled((t) => ({ ...t, ...Object.fromEntries(expandable.map((g) => [`${grouping}:${g.key}`, open])) }))
@@ -188,7 +222,7 @@ export default function Breakdown({ lines, currency, grouping }: { lines: Breakd
         <TableBody>
           {groups.map((g) => {
             // By asset, an asset held in one place needs no group row. By type the group row is always shown.
-            if (grouping === 'asset' && g.lines.length === 1) return <LineRow key={g.key} line={g.lines[0]} currency={currency} total={total} nested={false} />
+            if (grouping === 'asset' && g.lines.length === 1) return <LineRow key={g.key} line={g.lines[0]} currency={currency} total={total} nested={false} aligned={hasGroupRows} grouping={grouping} />
 
             const open = isOpen(g)
             const share = total > 0 ? (g.value / total) * 100 : 0
@@ -199,13 +233,13 @@ export default function Breakdown({ lines, currency, grouping }: { lines: Breakd
               <Fragment key={g.key}>
                 <TableRow sx={{ '& td': { fontWeight: 600 } }}>
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: `${CHEVRON_GAP}px` }}>
                       <IconButton
                         size="small"
                         onClick={() => toggle(g)}
                         aria-expanded={open}
                         aria-label={`${open ? 'Hide' : 'Show'} the ${g.lines.length} holdings of ${g.label}`}
-                        sx={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 150ms' }}
+                        sx={{ width: CHEVRON, height: CHEVRON, p: 0, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 150ms' }}
                       >
                         <ChevronIcon fontSize="small" />
                       </IconButton>
@@ -228,13 +262,13 @@ export default function Breakdown({ lines, currency, grouping }: { lines: Breakd
                     {amount !== null ? amount.toLocaleString('en', { maximumFractionDigits: 8 }) : ''}
                   </TableCell>
                   <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {formatMoney(String(g.value), currency)}
+                    {money(String(g.value), currency)}
                   </TableCell>
                   <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                     <ShareBar share={share} />
                   </TableCell>
                 </TableRow>
-                {open && g.lines.map((l) => <LineRow key={`${l.sourceType}:${l.sourceRef}`} line={l} currency={currency} total={total} nested />)}
+                {open && g.lines.map((l) => <LineRow key={`${l.sourceType}:${l.sourceRef}`} line={l} currency={currency} total={total} nested grouping={grouping} />)}
               </Fragment>
             )
           })}
