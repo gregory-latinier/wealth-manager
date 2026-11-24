@@ -14,6 +14,7 @@ import { adminBankRoutes } from './routes/admin-bank'
 import { adminCrowdlendingRoutes } from './routes/admin-crowdlending'
 import { adminCryptoRoutes, type AdminCryptoOptions } from './routes/admin-crypto'
 import { adminExchangeRoutes, type AdminExchangeOptions } from './routes/admin-exchange'
+import { adminGominingRoutes } from './routes/admin-gomining'
 import { adminSettingsRoutes } from './routes/admin-settings'
 import { adminMt5Routes, type AdminMt5Options } from './routes/admin-mt5'
 import { adminStocksRoutes, type AdminStocksOptions } from './routes/admin-stocks'
@@ -60,6 +61,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(adminCrowdlendingRoutes, { prefix: '/api/admin/crowdlending' })
   await app.register(adminCryptoRoutes, { prefix: '/api/admin/crypto', ...options.adminCrypto })
   await app.register(adminExchangeRoutes, { prefix: '/api/admin/exchanges', ...options.adminExchange })
+  await app.register(adminGominingRoutes, { prefix: '/api/admin/gomining' })
   await app.register(adminMt5Routes, { prefix: '/api/admin/mt5', ...options.adminMt5 })
   await app.register(adminSettingsRoutes, { prefix: '/api/admin/settings' })
   await app.register(adminSmardexRoutes, { prefix: '/api/admin/smardex', ...options.adminSmardex })

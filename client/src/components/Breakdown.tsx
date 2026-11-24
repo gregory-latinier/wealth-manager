@@ -28,6 +28,8 @@ function describeRef(line: BreakdownLine): string {
   if (line.sourceType === 'crowdlending') return 'Crowdlending loan'
   // MT5 refs are `<login>:EUR|USD`. The account name is not in the snapshot line, so the login is what can be shown.
   if (line.sourceType === 'mt5') return `MT5 account ${line.sourceRef.split(':')[0]}`
+  // GoMining refs are `<miner id>:TH` for a miner, and `wallet:BTC` or `wallet:GMT` for the wallet. The miner name is not in the snapshot line.
+  if (line.sourceType === 'gomining') return line.sourceRef.startsWith('wallet:') ? 'GoMining wallet' : 'GoMining miner'
   // Aave refs are `<address>:<reserve id>:supply|debt`. A debt line has a negative amount, so "Borrowed" is enough to read it.
   if (line.sourceType === 'aave') {
     const [owner, , side] = line.sourceRef.split(':')

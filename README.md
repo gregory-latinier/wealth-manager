@@ -176,6 +176,18 @@ Run `pnpm db:migrate` once (creates `Mt5Account`), open **MT5**, and paste the U
 
 The **balance** counts, not the equity, so open trades are not included. The snapshot reads the feed once a day. An account whose row is in error, or whose last update is more than 48 hours old, keeps its previous value marked stale instead of dropping to 0, and so does every account when the feed cannot be reached. A EUR account is converted at the daily rate.
 
+### Track GoMining miners
+
+GoMining has no public API and your miners live inside your GoMining account, so nothing is read from it and no GoMining login or token is stored here. You type in what you own and the portfolio does the maths.
+
+Run `pnpm db:migrate` once (creates `GominingMiner`), then open **GoMining**:
+
+- **Value of 1 TH**, with its currency (EUR or USD). A single price for all your miners, for example what one TH costs on the GoMining marketplace. A miner counts as its TH times this value. Until it is set, the miners cannot be valued.
+- **Miners**: one entry per miner, with its TH. Raise the TH when you upgrade a miner. Pause a miner to stop counting it.
+- **BTC and GMT in the wallet**: the mining rewards and GoMining tokens waiting in your GoMining wallet. Type the amounts, they are priced automatically (BTC with the Bitcoin price, GMT through its Ethereum contract).
+
+Nothing is updated by itself: after a reward lands or you buy TH, edit the page. A price that cannot be read keeps its previous value marked stale instead of dropping to 0.
+
 ### Choose the pages in the menu
 
 Not everyone tracks everything. The gear icon next to the log out button opens **Settings**, where each page can be hidden from the menu or shown again. The choice is saved on the server, so every device shows the same menu. Hiding a page only removes it from the menu: whatever it tracks is still counted in your net worth, and the page stays reachable at its address.
