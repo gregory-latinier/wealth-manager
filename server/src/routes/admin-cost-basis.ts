@@ -1,8 +1,8 @@
 import { FastifyPluginAsync } from 'fastify'
 import { requireAuth } from '../lib/auth'
-import { deleteCostBasis, listCostBasis, setCostBasis } from '../sources/cost-basis'
+import { COST_CURRENCIES, deleteCostBasis, listCostBasis, setCostBasis, type CostCurrency } from '../sources/cost-basis'
 
-// A plain non-negative decimal in USD with at most 8 decimals. Zero is allowed (an airdrop).
+// A plain non-negative decimal with at most 8 decimals. Zero is allowed (an airdrop).
 const COST = /^\d{1,19}(\.\d{1,8})?$/
 
 const lineProps = {
@@ -15,25 +15,25 @@ export const adminCostBasisRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get('/', async () => ({ costs: await listCostBasis() }))
 
-  // Sets or replaces the total paid for one position.
+  // Sets or replaces the total paid for one position, in the currency it was paid in.
   fastify.put(
     '/',
     {
       schema: {
         body: {
           type: 'object',
-          required: ['sourceType', 'sourceRef', 'costUsd'],
+          required: ['sourceType', 'sourceRef', 'cost', 'currency'],
           additionalProperties: false,
-          properties: { ...lineProps, costUsd: { type: 'string', minLength: 1, maxLength: 32 } },
+          properties: { ...lineProps, cost: { type: 'string', minLength: 1, maxLength: 32 }, currency: { type: 'string', enum: [...COST_CURRENCIES] } },
         },
       },
       config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
-      const body = request.body as { sourceType: string; sourceRef: string; costUsd: string }
-      const cost = body.costUsd.trim()
-      if (!COST.test(cost)) return reply.status(400).send({ error: 'The cost must be a number of USD, 0 or more, with at most 8 decimals' })
-      return setCostBasis(body.sourceType, body.sourceRef, cost)
+      const body = request.body as { sourceType: string; sourceRef: string; cost: string; currency: CostCurrency }
+      const cost = body.cost.trim()
+      if (!COST.test(cost)) return reply.status(400).send({ error: 'The cost must be a number, 0 or more, with at most 8 decimals' })
+      return setCostBasis(body.sourceType, body.sourceRef, cost, body.currency)
     }
   )
 

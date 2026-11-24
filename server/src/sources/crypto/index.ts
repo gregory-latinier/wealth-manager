@@ -103,7 +103,7 @@ export function createCryptoSource(providers: CryptoProviders): SourceType {
       }
 
       // Token prices, one call per chain. A failed lookup fails that chain's tokens only. A contract the
-      // provider does not know is valued at 0 (the owner was warned when adding it, see SC5).
+      // provider does not know is a failure for that token (the owner was warned when adding it, see SC5).
       const tokenPrices = new Map<EvmChain, Map<string, Decimal> | string>()
       for (const chain of EVM_CHAINS) {
         const contracts = holders.filter((h) => h.chain === chain).flatMap((h) => h.tokens.map((t) => t.contractAddress!))
@@ -148,8 +148,10 @@ export function createCryptoSource(providers: CryptoProviders): SourceType {
           // A wallet that no longer has a token account for the mint holds none of it: that is a real zero, not a failed read.
           const balance = held.get(token.contractAddress!) ?? dec(0)
           // A price DefiLlama does not have is a failure so the last value is carried forward. Valuing it at 0 would drop it from the net worth.
-          if (!price) failures.push({ sourceRef: ref, reason: `no USD price for ${token.symbol}` })
-          else lines.push({ sourceRef: ref, symbol: token.symbol, amount: balance, priceUsd: price.priceUsd })
+          // An empty balance has nothing to lose, so it is valued at 0 and does not keep the snapshot partial.
+          if (price) lines.push({ sourceRef: ref, symbol: token.symbol, amount: balance, priceUsd: price.priceUsd })
+          else if (balance.isZero()) lines.push({ sourceRef: ref, symbol: token.symbol, amount: balance, priceUsd: dec(0) })
+          else failures.push({ sourceRef: ref, reason: `no USD price for ${token.symbol}` })
         }
       }
 
@@ -190,7 +192,12 @@ export function createCryptoSource(providers: CryptoProviders): SourceType {
               } else if (typeof prices === 'string' || prices === undefined) {
                 failures.push({ sourceRef: ref, reason: prices ?? 'price lookup failed' })
               } else {
-                lines.push({ sourceRef: ref, symbol: token.symbol, amount: balance.balance, priceUsd: prices.get(token.contractAddress!) ?? dec(0) })
+                const priceUsd = prices.get(token.contractAddress!)
+                if (priceUsd) lines.push({ sourceRef: ref, symbol: token.symbol, amount: balance.balance, priceUsd })
+                // Same rule as for Solana tokens: no price is a failure, so the last value is carried forward and the token cannot
+                // drop out of the net worth. An empty balance has nothing to lose, so it is valued at 0 and does not keep the snapshot partial.
+                else if (balance.balance.isZero()) lines.push({ sourceRef: ref, symbol: token.symbol, amount: balance.balance, priceUsd: dec(0) })
+                else failures.push({ sourceRef: ref, reason: `no USD price for ${token.symbol}` })
               }
             }
           } catch (err) {

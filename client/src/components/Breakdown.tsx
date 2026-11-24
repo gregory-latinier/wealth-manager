@@ -94,14 +94,14 @@ function ShareBar({ share }: { share: number }) {
 }
 
 /** A gain or loss in USD with its percentage, green or red. Shown on a line and on a group, so they read the same. */
-function PnlFigure({ pnlUsd, pnlPct }: { pnlUsd: number; pnlPct: number | null }) {
+function PnlFigure({ pnl, pnlPct, currency }: { pnl: number; pnlPct: number | null; currency: Currency }) {
   const { money } = useMoney()
-  const color = pnlUsd < 0 ? 'error.main' : pnlUsd > 0 ? 'success.main' : undefined
+  const color = pnl < 0 ? 'error.main' : pnl > 0 ? 'success.main' : undefined
   return (
     <Box sx={{ textAlign: 'right' }}>
       <Typography variant="body2" sx={{ color }}>
-        {pnlUsd > 0 ? '+' : ''}
-        {money(String(pnlUsd), 'USD')}
+        {pnl > 0 ? '+' : ''}
+        {money(String(pnl), currency)}
       </Typography>
       {pnlPct !== null && (
         <Typography variant="caption" sx={{ color }}>
@@ -114,10 +114,11 @@ function PnlFigure({ pnlUsd, pnlPct }: { pnlUsd: number; pnlPct: number | null }
 }
 
 /** Gain or loss of a position against its entered cost, with an edit button. Without a cost, the button invites to enter one. */
-function PnlCell({ line, onEdit }: { line: BreakdownLine; onEdit: (line: BreakdownLine) => void }) {
+function PnlCell({ line, currency, onEdit }: { line: BreakdownLine; currency: Currency; onEdit: (line: BreakdownLine) => void }) {
+  const pnl = currency === 'USD' ? line.pnlUsd : line.pnlEur
   return (
     <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-      {line.pnlUsd === null ? (
+      {pnl === null ? (
         <Tooltip title="Enter what you paid to see the gain or loss">
           <IconButton size="small" onClick={() => onEdit(line)} aria-label={`Set the cost of ${line.symbol}`}>
             <EditIcon fontSize="inherit" />
@@ -125,7 +126,7 @@ function PnlCell({ line, onEdit }: { line: BreakdownLine; onEdit: (line: Breakdo
         </Tooltip>
       ) : (
         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-          <PnlFigure pnlUsd={Number(line.pnlUsd)} pnlPct={line.pnlPct === null ? null : Number(line.pnlPct)} />
+          <PnlFigure pnl={Number(pnl)} pnlPct={line.pnlPct === null ? null : Number(line.pnlPct)} currency={currency} />
           <IconButton size="small" onClick={() => onEdit(line)} aria-label={`Change the cost of ${line.symbol}`}>
             <EditIcon fontSize="inherit" />
           </IconButton>
@@ -136,14 +137,14 @@ function PnlCell({ line, onEdit }: { line: BreakdownLine; onEdit: (line: Breakdo
 }
 
 /** Total gain of a set of lines. Only lines with a cost are counted, and it says how many, so a partial total is never read as a whole one. */
-function PnlTotalCell({ lines }: { lines: BreakdownLine[] }) {
-  const total = pnlTotal(lines)
+function PnlTotalCell({ lines, currency }: { lines: BreakdownLine[]; currency: Currency }) {
+  const total = pnlTotal(lines, currency)
   return (
     <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
       {total && (
         <Tooltip title={total.counted === total.total ? 'Every holding here has a cost.' : `Only ${total.counted} of these ${total.total} holdings have a cost entered.`}>
           <Box sx={{ display: 'inline-block' }}>
-            <PnlFigure pnlUsd={total.pnlUsd} pnlPct={total.pnlPct} />
+            <PnlFigure pnl={total.pnl} pnlPct={total.pnlPct} currency={currency} />
             {total.counted !== total.total && (
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 400 }}>
                 {total.counted}/{total.total} with cost
@@ -241,7 +242,7 @@ function LineRow({
           {trimAmount(line.amount)} {line.symbol}
         </Typography>
       </TableCell>
-      <PnlCell line={line} onEdit={onEdit} />
+      <PnlCell line={line} currency={currency} onEdit={onEdit} />
       <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
         <ShareBar share={share} />
       </TableCell>
@@ -260,7 +261,7 @@ export default function Breakdown({ lines, currency, grouping, onCostChange }: {
   if (lines.length === 0) return <Typography color="text.secondary">No holdings in this snapshot.</Typography>
 
   const groups = groupLines(lines, currency, grouping)
-  const overall = pnlTotal(lines)
+  const overall = pnlTotal(lines, currency)
   // Shares are of what is held. Dividing by the net worth would push every share past 100% as soon as something is borrowed.
   const total = groups.reduce((sum, g) => sum + Math.max(g.value, 0), 0)
   const isOpen = (g: Group) => toggled[`${grouping}:${g.key}`] ?? grouping !== 'asset'
@@ -275,7 +276,7 @@ export default function Breakdown({ lines, currency, grouping, onCostChange }: {
 
   return (
     <>
-      <CostDialog line={editing} onClose={() => setEditing(null)} onSaved={onCostChange} />
+      <CostDialog line={editing} defaultCurrency={currency} onClose={() => setEditing(null)} onSaved={onCostChange} />
       <TableContainer>
       <Table
         sx={{
@@ -311,7 +312,7 @@ export default function Breakdown({ lines, currency, grouping, onCostChange }: {
             </TableCell>
             <TableCell align="right">Value</TableCell>
             <TableCell align="right">
-              <Tooltip title="Value minus what you paid, in USD. Use the pencil on a row to enter the cost.">
+              <Tooltip title="Value minus what you paid, in the currency shown. Use the pencil on a row to enter the cost.">
                 <span>P/L</span>
               </Tooltip>
             </TableCell>
@@ -363,7 +364,7 @@ export default function Breakdown({ lines, currency, grouping, onCostChange }: {
                   <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                     {money(String(g.value), currency)}
                   </TableCell>
-                  <PnlTotalCell lines={g.lines} />
+                  <PnlTotalCell lines={g.lines} currency={currency} />
                   <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                     <ShareBar share={share} />
                   </TableCell>
@@ -381,7 +382,7 @@ export default function Breakdown({ lines, currency, grouping, onCostChange }: {
             Total gain or loss
             {overall.counted !== overall.total && ` (${overall.counted} of ${overall.total} holdings with a cost)`}
           </Typography>
-          <PnlFigure pnlUsd={overall.pnlUsd} pnlPct={overall.pnlPct} />
+          <PnlFigure pnl={overall.pnl} pnlPct={overall.pnlPct} currency={currency} />
         </Box>
       )}
     </>

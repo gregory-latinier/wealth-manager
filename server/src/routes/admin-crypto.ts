@@ -221,9 +221,7 @@ export const adminCryptoRoutes: FastifyPluginAsync<AdminCryptoOptions> = async (
           priced,
           warning:
             priced === false
-              ? address.chain === 'sol'
-                ? 'No price is known for this token. Its snapshot line will be reported as failed, and its last known value carried forward, until a price exists.'
-                : 'No price is known for this token. It will be valued at 0 until a price exists.'
+              ? 'No price is known for this token. Its snapshot line will be reported as failed, and its last known value carried forward, until a price exists.'
               : null,
         })
       } catch (err) {

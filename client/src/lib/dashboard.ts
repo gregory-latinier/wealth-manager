@@ -42,11 +42,26 @@ export interface BreakdownLine {
   category: string
   categoryLabel: string
   status: Status
-  /** What the owner paid for the position, in USD. Null when not entered: an unknown cost is not a zero gain. */
+  /** What the owner paid for the position, as typed and in the currency it was typed in. Null when not entered: an unknown cost is not a zero gain. */
+  cost: string | null
+  costCurrency: Currency | null
+  /** The cost in each currency. The one it was typed in is exact, the other uses the rate of the snapshot shown. */
   costUsd: string | null
-  /** Value minus cost, in USD, and as a percent of the cost (null when there is no cost, or it is 0). */
+  costEur: string | null
+  /** Value minus cost, in each currency, and as a percent of the cost (null when there is no cost, or it is 0). */
   pnlUsd: string | null
+  pnlEur: string | null
   pnlPct: string | null
+}
+
+/** A cost whose position is not in the latest snapshot any more (sold, removed or renamed). */
+export interface OrphanCost {
+  sourceType: string
+  sourceRef: string
+  cost: string
+  currency: Currency
+  /** Last symbol seen for it, null if it never appeared in a snapshot. */
+  symbol: string | null
 }
 
 export interface DashboardData {
@@ -54,6 +69,7 @@ export interface DashboardData {
   change: { day: Change | null; week: Change | null }
   series: { date: string; totalUsd: string; totalEur: string; status: 'complete' | 'partial' }[]
   breakdown: { date: string; status: 'complete' | 'partial'; lines: BreakdownLine[] } | null
+  orphanCosts: OrphanCost[]
 }
 
 /** How holdings are grouped, in both the donut and the table. */
@@ -101,7 +117,8 @@ export const groupColor = (grouping: Grouping, key: string): string | undefined 
   grouping === 'category' ? categoryColor(key) : grouping === 'status' ? statusColor(key) : undefined
 
 export interface PnlTotal {
-  pnlUsd: number
+  /** In the currency asked for. */
+  pnl: number
   /** Percent of the cost of the lines counted. Null when that cost is 0. */
   pnlPct: number | null
   /** Lines that have a cost, out of all the lines. The total only covers the first. */
@@ -113,22 +130,24 @@ export interface PnlTotal {
  * Unrealised gain of a set of lines. Only lines with an entered cost are counted: a line without one has no known gain, and counting
  * it as zero would hide that. Null when no line has a cost. Display only, the exact figures stay decimal strings per line.
  */
-export function pnlTotal(lines: BreakdownLine[]): PnlTotal | null {
+export function pnlTotal(lines: BreakdownLine[], currency: Currency): PnlTotal | null {
   let pnl = 0
   let cost = 0
   let counted = 0
   for (const l of lines) {
-    if (l.pnlUsd === null || l.costUsd === null) continue
-    pnl += Number(l.pnlUsd)
-    cost += Number(l.costUsd)
+    const linePnl = currency === 'USD' ? l.pnlUsd : l.pnlEur
+    const lineCost = currency === 'USD' ? l.costUsd : l.costEur
+    if (linePnl === null || lineCost === null) continue
+    pnl += Number(linePnl)
+    cost += Number(lineCost)
     counted += 1
   }
-  return counted === 0 ? null : { pnlUsd: pnl, pnlPct: cost === 0 ? null : (pnl / cost) * 100, counted, total: lines.length }
+  return counted === 0 ? null : { pnl, pnlPct: cost === 0 ? null : (pnl / cost) * 100, counted, total: lines.length }
 }
 
-const COST_URL ='/api/admin/cost-basis'
+const COST_URL = '/api/admin/cost-basis'
 export const costApi = {
-  set: (sourceType: string, sourceRef: string, costUsd: string) => api(COST_URL, { method: 'PUT', body: { sourceType, sourceRef, costUsd } }),
+  set: (sourceType: string, sourceRef: string, cost: string, currency: Currency) => api(COST_URL, { method: 'PUT', body: { sourceType, sourceRef, cost, currency } }),
   clear: (sourceType: string, sourceRef: string) =>
     api(`${COST_URL}?sourceType=${encodeURIComponent(sourceType)}&sourceRef=${encodeURIComponent(sourceRef)}`, { method: 'DELETE' }),
 }

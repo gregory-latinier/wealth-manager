@@ -187,6 +187,14 @@ describe('Solana tokens', () => {
       expect(failures[0].reason).toContain('no USD price')
     })
 
+    it('values an unpriced token at 0 when its balance is empty, so it does not keep the snapshot partial', async () => {
+      const providers = await setup({ held: [], decimals: { [JUP]: 6 }, prices: {}, solPrice: '70' })
+      await addToken(await addAddress(), JUP)
+      const { lines, failures } = await createCryptoSource(providers).collect({ date: '2026-11-19' })
+      expect(failures).toEqual([])
+      expect(lines.map((l) => l.symbol).sort()).toEqual([`${JUP.slice(0, 4)}…${JUP.slice(-4)}`, 'SOL'].sort())
+    })
+
     it('fails the tokens alone, keeping the SOL, when the wallet token read fails', async () => {
       const providers = await setup({ held: new ProviderError('solana-rpc', 'http', 'HTTP 429'), decimals: { [USDC]: 6 }, prices: { [USDC]: { price: '1', symbol: 'USDC' } }, solPrice: '70' })
       await addToken(await addAddress(), USDC)

@@ -131,7 +131,7 @@ BNB Chain RPC: `bsc-dataseed1.binance.org` answered batches from the dev machine
 
 **SPL tokens.** Held tokens are read with `getTokenAccountsByOwner` (jsonParsed, classic token program), summing several accounts of the same mint and taking the exact integer `amount`, never the float. Decimals of a tracked mint come from `getTokenSupply`, which also rejects a wallet address pasted as a mint. Prices come from DefiLlama's `solana:<mint>` namespace, and the symbol from the same answer (a mint has no symbol on chain; without one the token is stored as `EPjF…Dt1v`). A mint is base58 and case-sensitive: two valid mints can differ by case alone, and DefiLlama also answers a lowercased mint, so mints are never lowercased or case-folded, and prices are matched on the exact key. The scan (`solana-scan.ts`) works like the EVM one: threshold, unpriced tokens listed apart, ignore list (migration 021 allows `sol` in `IgnoredToken`).
 
-**Unpriced tokens differ from EVM.** An unpriced EVM token is valued at 0 and the snapshot stays complete. An unpriced SPL token is reported as a failure and its last value is carried forward, so a missing price cannot silently drop it from the net worth.
+**Unpriced tokens.** On every chain, EVM and Solana alike, a token with no USD price is reported as a failure and its last value is carried forward, so a missing price cannot silently drop it from the net worth. The one exception is an empty balance: it has nothing to lose, so it is valued at 0 and does not keep the snapshot partial forever.
 
 **Not covered:** Token-2022 accounts (a separate program), and NFTs.
 
