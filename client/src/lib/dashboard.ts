@@ -48,7 +48,37 @@ const SOURCE_LABEL: Record<string, string> = { crypto: 'Crypto', exchange: 'Exch
 export const sourceLabel = (sourceType: string): string => SOURCE_LABEL[sourceType] ?? sourceType.charAt(0).toUpperCase() + sourceType.slice(1)
 
 /** How holdings are grouped, in both the donut and the table. */
-export type Grouping = 'asset' | 'category' | 'type'
+export type Grouping = 'asset' | 'category' | 'type' | 'status'
+
+/** Whether a holding can be used now. Worked out from where it sits, since no source stores an unlock date yet. */
+export type Status = 'available' | 'locked' | 'borrowed'
+
+/**
+ * - borrowed: a debt (an Aave `:debt` line, or any line with a negative value).
+ * - locked: staked principal, Smardex positions, GoMining miners, supply deposited on Aave (it backs the loan), crowdlending loans.
+ * - available: everything else, including claimable staking rewards and the GoMining wallet balance.
+ * A source type this does not know is treated as available, so a new source never disappears or looks frozen by mistake.
+ */
+export function statusOf(l: BreakdownLine): Status {
+  if (l.sourceType === 'aave') return l.sourceRef.endsWith(':debt') || Number(l.valueUsd) < 0 ? 'borrowed' : 'locked'
+  if (Number(l.valueUsd) < 0) return 'borrowed'
+  switch (l.sourceType) {
+    case 'staking':
+      return l.sourceRef.endsWith(':rewards') ? 'available' : 'locked'
+    case 'gomining':
+      return l.sourceRef.startsWith('wallet:') ? 'available' : 'locked'
+    case 'smardex':
+    case 'crowdlending':
+      return 'locked'
+    default:
+      return 'available'
+  }
+}
+
+const STATUS_LABEL: Record<Status, string> = { available: 'Available', locked: 'Locked', borrowed: 'Borrowed' }
+const STATUS_COLOR: Record<Status, string> = { available: '#4cd9a0', locked: '#f0b429', borrowed: '#ff6b6b' }
+export const statusLabel = (status: string): string => STATUS_LABEL[status as Status] ?? status
+export const statusColor = (status: string): string | undefined => STATUS_COLOR[status as Status]
 
 // Broad categories that source types roll up into. Everything on-chain or on an exchange is crypto, including the DeFi positions,
 // because they are held in crypto and move with it. A source type missing here is shown as its own category rather than hidden in "Other".
@@ -74,15 +104,35 @@ export const categoryColor = (category: string): string | undefined => CATEGORY_
 export const categoryOf = (sourceType: string): string => CATEGORY_OF[sourceType] ?? sourceType
 export const categoryLabel = (category: string): string => CATEGORY_LABEL[category] ?? sourceLabel(category)
 
-/** Group a holding belongs to: its symbol, its category, or the source type it comes from. */
+/** Group a holding belongs to: its symbol, its category, the source type it comes from, or whether it can be used now. */
 export function groupKey(l: BreakdownLine, grouping: Grouping): string {
-  if (grouping === 'asset') return l.symbol
-  return grouping === 'category' ? categoryOf(l.sourceType) : l.sourceType
+  switch (grouping) {
+    case 'asset':
+      return l.symbol
+    case 'category':
+      return categoryOf(l.sourceType)
+    case 'status':
+      return statusOf(l)
+    default:
+      return l.sourceType
+  }
 }
 export function groupLabel(l: BreakdownLine, grouping: Grouping): string {
-  if (grouping === 'asset') return l.symbol
-  return grouping === 'category' ? categoryLabel(categoryOf(l.sourceType)) : sourceLabel(l.sourceType)
+  switch (grouping) {
+    case 'asset':
+      return l.symbol
+    case 'category':
+      return categoryLabel(categoryOf(l.sourceType))
+    case 'status':
+      return statusLabel(statusOf(l))
+    default:
+      return sourceLabel(l.sourceType)
+  }
 }
+
+/** Color a group keeps in the donut, when its grouping has fixed colors. Other groupings follow the donut's ramp. */
+export const groupColor = (grouping: Grouping, key: string): string | undefined =>
+  grouping === 'category' ? categoryColor(key) : grouping === 'status' ? statusColor(key) : undefined
 
 export const fetchDashboard = (date?: string) => api<DashboardData>(date ? `/api/dashboard?date=${encodeURIComponent(date)}` : '/api/dashboard')
 

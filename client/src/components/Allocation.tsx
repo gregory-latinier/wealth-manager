@@ -1,7 +1,7 @@
 import { Box, ButtonBase, Stack, Typography } from '@mui/material'
 import { useEffect, useMemo, useState } from 'react'
 import { Cell, Pie, PieChart } from 'recharts'
-import { categoryColor, groupKey, groupLabel, type BreakdownLine, type Currency, type Grouping } from '../lib/dashboard'
+import { groupColor, groupKey, groupLabel, type BreakdownLine, type Currency, type Grouping } from '../lib/dashboard'
 import { usePrefersReducedMotion } from '../lib/motion'
 import { useMoney } from '../lib/privacy'
 import GroupingToggle from './GroupingToggle'
@@ -59,8 +59,8 @@ export default function Allocation({ lines, currency, grouping, onGroupingChange
 
   // Memoized: a new array on every render (a hover changes state) would make the chart think its data changed and sweep again.
   const { slices: data, owed } = useMemo(() => slices(lines, currency, grouping), [lines, currency, grouping])
-  // By category a slice keeps its category color, matching the cards. Otherwise colors follow the ramp, largest first.
-  const colorOf = (s: Slice, i: number) => (grouping === 'category' ? categoryColor(s.key) : undefined) ?? SLICES[i % SLICES.length]
+  // By category and by status a slice keeps its own color, matching the cards and the table. Otherwise colors follow the ramp, largest first.
+  const colorOf = (s: Slice, i: number) => groupColor(grouping, s.key) ?? SLICES[i % SLICES.length]
   // The middle of the donut is the net worth, so it is the headline figure even when part of it is borrowed.
   const total = data.reduce((sum, s) => sum + s.value, 0) - owed
   // A pinned slice that no longer exists (other currency, other day) is ignored rather than leaving everything dimmed.
